@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>管理</title>
+    <style>
+      :root {
+        --bg: #f4f1ea;
+        --panel: #fffdf8;
+        --line: #d8cdbf;
+        --ink: #2d261f;
+        --muted: #6f655a;
+        --accent: #0d6b57;
+        --danger: #8a3b12;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, #f8f2e6 0, #f4f1ea 36%),
+          linear-gradient(180deg, #f6f3ed 0%, #ece5d9 100%);
+        color: var(--ink);
+        font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
+      }
+
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        padding: 14px;
+      }
+
+      .panel {
+        margin-bottom: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 10px 20px rgba(70, 53, 26, 0.05);
+      }
+
+      h1, h2 { margin: 0; }
+      h1 { font-size: 18px; }
+      h2 { font-size: 14px; margin-bottom: 10px; }
+      p {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .stack,
+      .record-stack,
+      .buttons {
+        display: grid;
+        gap: 10px;
+      }
+
+      .stamp-card,
+      .record-card {
+        padding: 10px;
+        border-radius: 14px;
+        background: #fffaf2;
+      }
+
+      .stamp-card { border: 1px dashed #c9b8a5; }
+      .record-card { border: 1px solid #eadfce; }
+
+      .stamp-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .stamp-head strong { font-size: 13px; }
+      .state,
+      .record-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .record-meta {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+
+      .record-empty {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      select,
+      input,
+      button {
+        width: 100%;
+        min-height: 36px;
+        border-radius: 10px;
+        font-size: 13px;
+      }
+
+      select,
+      input {
+        border: 1px solid #cfc2b2;
+        padding: 8px 10px;
+        background: #fffdfa;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: none;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .primary { color: white; background: var(--accent); }
+      .secondary { color: var(--ink); background: #e9dfd0; }
+      .ghost { color: var(--danger); background: #f7e7dc; }
+
+      .status {
+        min-height: 18px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--accent);
+      }
+
+      .error { color: #a12424; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="panel">
+        <h1>管理</h1>
+        <p>承認待ち案件を開いて、そのまま固定印鑑と主務職印を押せます。</p>
+      </div>
+
+      <div class="panel">
+        <h2>承認待ち案件</h2>
+        <div id="currentRecord" class="record-card record-empty">現在読み込み中の案件はありません。</div>
+        <div class="button-row" style="margin-top: 10px;">
+          <button id="refreshQueueButton" class="secondary" type="button">一覧を更新</button>
+        </div>
+        <div id="queueList" class="record-stack" style="margin-top: 10px;"></div>
+        <div class="status" id="queueStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>案件IDで開く</h2>
+        <label for="recordIdInput">案件ID</label>
+        <input id="recordIdInput" type="text" placeholder="例: 20260321-000001">
+        <div class="button-row" style="margin-top: 10px;">
+          <button id="loadRecordByIdButton" class="secondary" type="button">案件IDで開く</button>
+        </div>
+        <p>確定済み案件を修正したい場合も、ここから案件IDを指定して開けます。</p>
+        <div class="status" id="recordLookupStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>固定印鑑を押す</h2>
+        <div class="stack">
+          <div class="stamp-card">
+            <div class="stamp-head">
+              <strong>課長</strong>
+            </div>
+            <div class="stamp-head" style="margin-bottom: 10px;">
+              <strong>現在の表示</strong>
+              <span class="state" id="state-chief"></span>
+            </div>
+            <button class="secondary" type="button" data-stamp="chief">課長印を押す</button>
+          </div>
+        </div>
+        <div class="status" id="fixedStampStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>主務職印</h2>
+        <div class="stamp-head" style="margin-bottom: 10px;">
+          <strong>現在の表示</strong>
+          <span class="state" id="state-staff"></span>
+        </div>
+        <label for="staffStampName">名前</label>
+        <select id="staffStampName"></select>
+        <div class="buttons" style="margin-top: 10px;">
+          <button class="primary" type="button" data-stamp="staff">主務職印を押す</button>
+          <button id="refreshButton" class="secondary" type="button">印鑑キャッシュを更新</button>
+        </div>
+        <div class="status" id="staffStatus"></div>
+      </div>
+
+      <div class="panel" id="assignmentPanel">
+        <h2>固定印鑑の設定</h2>
+        <label for="chiefName">課長</label>
+        <select id="chiefName"></select>
+        <div class="buttons" style="margin-top: 10px;">
+          <button id="saveAssignmentsButton" class="primary" type="button">設定を保存</button>
+        </div>
+        <div class="status" id="assignmentStatus"></div>
+      </div>
+    </div>
+
+    <script>
+      const initialState = <?!= initialState ?>;
+      let appState = initialState || createEmptyState();
+
+      document.addEventListener('DOMContentLoaded', () => {
+        render(appState);
+        bindEvents();
+        loadInitialState();
+      });
+
+      function createEmptyState() {
+        return {
+          roster: { allNames: [] },
+          stampAssignments: {},
+          currentStamps: {},
+          queue: [],
+          currentRecord: null,
+        };
+      }
+
+      function bindEvents() {
+        document.querySelectorAll('[data-stamp]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const slot = button.dataset.stamp;
+            const name = document.getElementById('staffStampName').value;
+            const statusId = slot === 'staff' ? 'staffStatus' : 'fixedStampStatus';
+            runAction('印鑑を表示しています...', (runner) => runner.pressStamp(slot, name), statusId);
+          });
+        });
+
+        document.getElementById('refreshButton').addEventListener('click', () => {
+          runAction('印鑑キャッシュを更新しています...', (runner) => runner.refreshStampCache(), 'staffStatus');
+        });
+
+        document.getElementById('refreshQueueButton').addEventListener('click', () => {
+          loadInitialState('queueStatus');
+        });
+
+        document.getElementById('loadRecordByIdButton').addEventListener('click', () => {
+          const recordId = document.getElementById('recordIdInput').value;
+          loadRecordById(recordId);
+        });
+
+        document.getElementById('saveAssignmentsButton').addEventListener('click', () => {
+          const assignments = {
+            chief: document.getElementById('chiefName').value,
+          };
+          runAction('設定を保存しています...', (runner) => runner.saveStampAssignments(assignments), 'assignmentStatus');
+        });
+      }
+
+      function loadInitialState(statusId) {
+        setBusy(true, '読み込み中です...', statusId);
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            render(appState);
+            setBusy(false, '', statusId);
+          })
+          .withFailureHandler((error) => showError(error, statusId))
+          .getStampSidebarState();
+      }
+
+      function render(state) {
+        const allNames = (state.roster && state.roster.allNames) || [];
+        const options = ['<option value=""></option>'].concat(
+          allNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        ).join('');
+
+        document.getElementById('chiefName').innerHTML = options;
+        document.getElementById('staffStampName').innerHTML = options;
+
+        const assignments = state.stampAssignments || {};
+        document.getElementById('chiefName').value = assignments.chief || '';
+        document.getElementById('staffStampName').value = (state.currentStamps && state.currentStamps.staff) || '';
+
+        updateStampStates(state.currentStamps || {});
+        renderCurrentRecord(state.currentRecord);
+        renderQueueList(state.queue || []);
+      }
+
+      function renderCurrentRecord(record) {
+        const container = document.getElementById('currentRecord');
+        if (!record) {
+          container.className = 'record-card record-empty';
+          container.textContent = '現在読み込み中の案件はありません。';
+          return;
+        }
+
+        container.className = 'record-card';
+        container.innerHTML = `
+          <div class="record-meta">
+            <div>案件ID: ${escapeHtml(record.recordId || '')}</div>
+            <div>状態: ${escapeHtml(record.status || '')}</div>
+            <div>次担当: ${escapeHtml(record.nextApprover || '')}</div>
+            <div>件名: ${escapeHtml(record.title || '')}</div>
+          </div>
+          ${record.draftPdfUrl ? `<div><a href="${escapeHtml(record.draftPdfUrl)}" target="_blank" rel="noopener noreferrer">仮PDFを開く</a></div>` : ''}
+          ${record.finalPdfUrl ? `<div><a href="${escapeHtml(record.finalPdfUrl)}" target="_blank" rel="noopener noreferrer">確定PDFを開く</a></div>` : ''}
+          <div class="button-row" style="margin-top: 10px;">
+            <button class="secondary" type="button" data-discard-record-id="${escapeHtml(record.recordId || '')}">この案件を破棄</button>
+          </div>
+        `;
+
+        container.querySelectorAll('[data-discard-record-id]').forEach((button) => {
+          button.addEventListener('click', () => discardRecord(button.dataset.discardRecordId));
+        });
+      }
+
+      function renderQueueList(queue) {
+        const container = document.getElementById('queueList');
+        if (!queue.length) {
+          container.innerHTML = '<div class="record-empty">承認待ち案件はありません。</div>';
+          return;
+        }
+
+        container.innerHTML = queue.map((record) => `
+          <div class="record-card">
+            <div class="record-meta">
+              <div>案件ID: ${escapeHtml(record.recordId || '')}</div>
+              <div>状態: ${escapeHtml(record.status || '')}</div>
+              <div>次担当: ${escapeHtml(record.nextApprover || '')}</div>
+              <div>${escapeHtml(record.workDate || '')} / ${escapeHtml(record.shipName || '')} / バース ${escapeHtml(record.berthNo || '')}</div>
+            </div>
+            <div class="button-row">
+              <button class="secondary" type="button" data-record-id="${escapeHtml(record.recordId || '')}">この案件を開く</button>
+              <button class="secondary" type="button" data-discard-record-id="${escapeHtml(record.recordId || '')}">この案件を破棄</button>
+            </div>
+          </div>
+        `).join('');
+
+        container.querySelectorAll('[data-record-id]').forEach((button) => {
+          button.addEventListener('click', () => loadRecord(button.dataset.recordId));
+        });
+
+        container.querySelectorAll('[data-discard-record-id]').forEach((button) => {
+          button.addEventListener('click', () => discardRecord(button.dataset.discardRecordId));
+        });
+      }
+
+      function loadRecord(recordId) {
+        setBusy(true, '案件を読み込んでいます...', 'queueStatus');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            render(appState);
+            setBusy(false, '', 'queueStatus');
+          })
+          .withFailureHandler((error) => showError(error, 'queueStatus'))
+          .loadQueueRecord(recordId);
+      }
+
+      function loadRecordById(recordId) {
+        const id = String(recordId || '').trim();
+        if (!id) return;
+        setBusy(true, '案件IDから読み込んでいます...', 'recordLookupStatus');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            render(appState);
+            document.getElementById('recordIdInput').value = id;
+            setBusy(false, '', 'recordLookupStatus');
+          })
+          .withFailureHandler((error) => showError(error, 'recordLookupStatus'))
+          .loadQueueRecordById(id);
+      }
+
+      function discardRecord(recordId) {
+        if (!recordId) return;
+        if (!window.confirm(`案件ID ${recordId} を破棄しますか？\n承認待ち一覧から削除し、関連PDFはゴミ箱へ移動します。`)) return;
+        setBusy(true, '案件を破棄しています...', 'queueStatus');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            render(appState);
+            setBusy(false, '', 'queueStatus');
+          })
+          .withFailureHandler((error) => showError(error, 'queueStatus'))
+          .discardQueueRecord(recordId);
+      }
+
+      function runAction(waitMessage, invoke, statusId) {
+        setBusy(true, waitMessage, statusId);
+        const runner = google.script.run
+          .withSuccessHandler((result) => {
+            if (result && typeof result === 'object') {
+              appState = Object.assign(createEmptyState(), appState, result);
+            }
+            loadInitialState(statusId);
+          })
+          .withFailureHandler((error) => showError(error, statusId));
+        invoke(runner);
+      }
+
+      function updateStampStates(stamps) {
+        document.getElementById('state-chief').textContent = stamps.chief ? `${stamps.chief} を表示中` : '未表示';
+        document.getElementById('state-staff').textContent = stamps.staff ? `${stamps.staff} を表示中` : '未表示';
+      }
+
+      function clearStatuses() {
+        ['queueStatus', 'recordLookupStatus', 'fixedStampStatus', 'staffStatus', 'assignmentStatus'].forEach((id) => {
+          const node = document.getElementById(id);
+          if (!node) return;
+          node.classList.remove('error');
+          node.textContent = '';
+        });
+      }
+
+      function setBusy(isBusy, message, statusId) {
+        document.querySelectorAll('button').forEach((button) => {
+          button.disabled = isBusy;
+        });
+        if (!statusId) {
+          if (!isBusy) clearStatuses();
+          return;
+        }
+        clearStatuses();
+        const status = document.getElementById(statusId);
+        if (!status) return;
+        if (!isBusy) {
+          status.classList.remove('error');
+          status.textContent = '';
+          return;
+        }
+        status.textContent = message || '';
+      }
+
+      function showError(error, statusId) {
+        document.querySelectorAll('button').forEach((button) => {
+          button.disabled = false;
+        });
+        clearStatuses();
+        const status = document.getElementById(statusId || 'staffStatus');
+        status.classList.add('error');
+        status.textContent = (error && error.message) || '処理に失敗しました。';
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+    </script>
+  </body>
+</html>

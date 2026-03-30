@@ -1,0 +1,221 @@
+const APP_CONFIG = {
+  formSheetName: 'Sheet1',
+  queueSheetName: 'APPROVAL_QUEUE',
+  menuSpreadsheetId: '[TODO: 現業課メニューのスプレッドシートID]',
+  menuDocumentsSheetName: '各種書類シート',
+  menuStaffSheetName: '主務職シート',
+  caseIdSpreadsheetId: '[TODO: 2026年度 案件ID のスプレッドシートID]',
+  caseIdSheetName: '案件IDリスト',
+  finalPdfFolderId: '[TODO: 初入港 確定PDF保存先フォルダID]',
+  menuName: '便利ツール',
+  transferColumn: 11,
+  statusOffset: 1,
+  documentType: '初入港',
+  statusStaffPending: '主務職待ち',
+  statusChiefPending: '課長待ち',
+  statusCompleted: '確定済み',
+  completedDocumentStatus: '完了',
+  fields: {
+    shipName: ['N2', 'text'],
+    inspectionDate: ['N4', 'date'],
+    operatingCompany: ['AK4', 'text'],
+    grossTon: ['S5', 'text'],
+    shipType: ['S6', 'text'],
+    deadWeight: ['Z6', 'text'],
+    captainName: ['AK6', 'text'],
+    workerStampName: ['AW2', 'text'],
+  },
+  checklist: buildChecklist_(),
+};
+
+function buildChecklist_() {
+  const rows = [
+    ['fire_01','P10','R10','V10'],['cargo_01','AP10','AR10','AV10'],['fire_02','P12','R12','V12'],['cargo_02','AP12','AR12','AV12'],
+    ['fire_03','P14','R14','V14'],['cargo_03','AP14','AR14','AV14'],['fire_04','P16','R16','V16'],['cargo_04','AP16','AR16','AV16'],
+    ['fire_05','P18','R18','V18'],['cargo_05','AP18','AR18','AV18'],['fire_06','P20','R20','V20'],['cargo_06','AP20','AR20','AV20'],
+    ['fire_07','P22','R22','V22'],['cargo_07','AP22','AR22','AV22'],['fire_08','P24','R24','V24'],['ppe_01','AP24','AR24','AV24'],
+    ['fire_09','P26','R26','V26'],['ppe_02','AP26','AR26','AV26'],['fire_10','P28','R28','V28'],['ppe_03','AP28','AR28','AV28'],
+    ['fire_11','P30','R30','V30'],['other_01','AP30','AR30','AV30'],['fire_12','P32','R32','V32'],['other_02','AP32','AR32','AV32'],
+    ['fire_13','P34','R34','V34'],['other_03','AP34','AR34','AV34'],['fire_14','P36','R36','V36'],['other_04','AP36','AR36','AV36'],
+  ];
+  return rows.map((row) => ({ key: row[0], checkCell: row[1], remarkCell: row[2], actionCell: row[3] }));
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu(APP_CONFIG.menuName)
+    .addItem('承認サイドバー', 'showSidebar')
+    .addItem('ステータス同期', 'refreshSidebar')
+    .addToUi();
+}
+
+function showSidebar() {
+  const template = HtmlService.createTemplateFromFile('Sidebar');
+  template.initialState = JSON.stringify(getSidebarState());
+  SpreadsheetApp.getUi().showSidebar(template.evaluate().setWidth(420).setHeight(700));
+}
+
+function refreshSidebar() { return getSidebarState(); }
+function getSidebarState() { return { queue: getQueueRecords_() }; }
+
+function loadCase(caseId) {
+  const record = getQueueRecordByCaseId_(caseId);
+  if (!record) throw new Error('案件が見つかりません。');
+  assertCaseIdUniqueAcrossWorkflow_(caseId);
+  writePayloadToSheet_(getMainSheet_(), record.payload);
+  placeTextStamp_(getMainSheet_().getRange(APP_CONFIG.fields.workerStampName[0]), record.payload.fields.workerStampName);
+  return getSidebarState();
+}
+
+function approveStaff(caseId, stampName) {
+  const record = getQueueRecordByCaseId_(caseId);
+  if (!record) throw new Error('案件が見つかりません。');
+  assertCaseIdUniqueAcrossWorkflow_(caseId);
+  if (record.status !== APP_CONFIG.statusStaffPending) throw new Error('この案件は主務職承認待ちではありません。');
+  writePayloadToSheet_(getMainSheet_(), record.payload);
+  placeTextStamp_(getMainSheet_().getRange(APP_CONFIG.fields.workerStampName[0]), record.payload.fields.workerStampName);
+  placeTextStamp_(getMainSheet_().getRange('AT2'), stampName);
+  record.status = APP_CONFIG.statusChiefPending;
+  upsertQueueRecord_(record);
+  syncMenuStaffProgress_(record.caseId, '済', '未', APP_CONFIG.statusChiefPending);
+  return getSidebarState();
+}
+
+function approveChief(caseId, stampName) {
+  const record = getQueueRecordByCaseId_(caseId);
+  if (!record) throw new Error('案件が見つかりません。');
+  assertCaseIdUniqueAcrossWorkflow_(caseId);
+  if (record.status !== APP_CONFIG.statusChiefPending) throw new Error('この案件は課長承認待ちではありません。');
+  writePayloadToSheet_(getMainSheet_(), record.payload);
+  placeTextStamp_(getMainSheet_().getRange(APP_CONFIG.fields.workerStampName[0]), record.payload.fields.workerStampName);
+  placeTextStamp_(getMainSheet_().getRange('AT2'), '済');
+  placeTextStamp_(getMainSheet_().getRange('AQ2'), stampName);
+  const file = exportFinalPdf_(record);
+  record.status = APP_CONFIG.statusCompleted;
+  record.finalPdfUrl = file.getUrl();
+  record.finalPdfName = file.getName();
+  upsertQueueRecord_(record);
+  syncMenuStaffProgress_(record.caseId, '済', '済', APP_CONFIG.statusCompleted);
+  syncDocumentStatusComplete_(record.caseId);
+  syncCaseIdList_(record.caseId);
+  return getSidebarState();
+}
+
+function exportFinalPdf_(record) {
+  const folder = getFolderByIdOrThrow_(APP_CONFIG.finalPdfFolderId);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=pdf&gid=' + getMainSheet_().getSheetId() + '&range=' + encodeURIComponent('A1:AY43') + '&size=A4&portrait=true&fitw=true&sheetnames=false&printtitle=false&pagenumbers=false&gridlines=false&fzr=false';
+  const name = [record.caseId, String(record.payload.fields.shipName || '').trim(), APP_CONFIG.documentType, '確定'].filter(Boolean).join(' ');
+  const blob = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } }).getBlob().setName(name + '.pdf');
+  return folder.createFile(blob);
+}
+
+function getQueueRecords_() {
+  const sheet = ensureQueueSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 7).getValues().map((row) => {
+    const payload = row[2] ? JSON.parse(row[2]) : { fields: {}, checklist: [] };
+    return { caseId: row[0], status: row[1], payload, caseContent: buildCaseContent_(payload.fields), shipName: payload.fields.shipName || '', draftPdfUrl: row[3] || '', finalPdfUrl: row[5] || '' };
+  }).filter((item) => item.caseId);
+}
+
+function getQueueRecordByCaseId_(caseId) {
+  const sheet = ensureQueueSheet_();
+  const rowIndex = findQueueRowByCaseId_(sheet, caseId);
+  if (!rowIndex) return null;
+  const row = sheet.getRange(rowIndex, 1, 1, 7).getValues()[0];
+  return { caseId: row[0], status: row[1], payload: row[2] ? JSON.parse(row[2]) : { fields: {}, checklist: [] }, draftPdfUrl: row[3] || '', draftPdfName: row[4] || '', finalPdfUrl: row[5] || '', finalPdfName: row[6] || '' };
+}
+
+function upsertQueueRecord_(record) {
+  const sheet = ensureQueueSheet_();
+  const rowIndex = findQueueRowByCaseId_(sheet, record.caseId);
+  const duplicateCount = countCaseIdInSheetColumn_(sheet, record.caseId, 1, 2);
+  if ((!rowIndex && duplicateCount > 0) || (rowIndex && duplicateCount > 1)) throw new Error('manager キューで案件IDが重複しています: ' + record.caseId);
+  const row = [record.caseId, record.status, JSON.stringify(record.payload), record.draftPdfUrl || '', record.draftPdfName || '', record.finalPdfUrl || '', record.finalPdfName || ''];
+  if (rowIndex) sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]); else sheet.appendRow(row);
+}
+
+function ensureQueueSheet_() {
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APP_CONFIG.queueSheetName);
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(APP_CONFIG.queueSheetName);
+    sheet.getRange(1, 1, 1, 7).setValues([['caseId','status','payloadJson','draftPdfUrl','draftPdfName','finalPdfUrl','finalPdfName']]);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function findQueueRowByCaseId_(sheet, caseId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) if (String(values[i][0] || '').trim() === String(caseId || '').trim()) return i + 2;
+  return 0;
+}
+
+function syncMenuStaffProgress_(caseId, staffValue, chiefValue, overallValue) {
+  if (!isConfiguredId_(APP_CONFIG.menuSpreadsheetId)) return;
+  const sheet = SpreadsheetApp.openById(APP_CONFIG.menuSpreadsheetId).getSheetByName(APP_CONFIG.menuStaffSheetName);
+  assertCaseIdUniqueInSheet_(sheet, caseId, '主務職シート');
+  const rowIndex = findRecordRow_(sheet, caseId);
+  if (!rowIndex) throw new Error('主務職シートに対象案件が見つかりません。');
+  sheet.getRange(rowIndex, 4).setValue(chiefValue);
+  sheet.getRange(rowIndex, 5).setValue(staffValue);
+  sheet.getRange(rowIndex, 6).setValue(overallValue);
+}
+
+function syncDocumentStatusComplete_(caseId) {
+  if (!isConfiguredId_(APP_CONFIG.menuSpreadsheetId)) return;
+  const sheet = SpreadsheetApp.openById(APP_CONFIG.menuSpreadsheetId).getSheetByName(APP_CONFIG.menuDocumentsSheetName);
+  assertCaseIdUniqueInSheet_(sheet, caseId, '各種書類シート');
+  const rowIndex = findRecordRow_(sheet, caseId);
+  if (!rowIndex) throw new Error('各種書類シートに対象案件が見つかりません。');
+  sheet.getRange(rowIndex, APP_CONFIG.transferColumn + APP_CONFIG.statusOffset).setValue(APP_CONFIG.completedDocumentStatus);
+}
+
+function syncCaseIdList_(caseId) {
+  if (!isConfiguredId_(APP_CONFIG.caseIdSpreadsheetId)) return;
+  const sheet = SpreadsheetApp.openById(APP_CONFIG.caseIdSpreadsheetId).getSheetByName(APP_CONFIG.caseIdSheetName);
+  const duplicateCount = countCaseIdInSheetColumn_(sheet, caseId, 1, 2);
+  if (duplicateCount > 1) throw new Error('案件IDリストで案件IDが重複しています: ' + caseId);
+  const rowIndex = findRecordRow_(sheet, caseId) || findNextBlankRow_(sheet, 1, 2);
+  sheet.getRange(rowIndex, 1).setValue(caseId);
+}
+
+function findRecordRow_(sheet, caseId) { const lastRow = sheet.getLastRow(); if (lastRow < 2) return 0; const values = sheet.getRange(2,1,lastRow-1,1).getDisplayValues(); for (let i=0;i<values.length;i+=1) if (String(values[i][0]||'').trim() === String(caseId||'').trim()) return i+2; return 0; }
+function findNextBlankRow_(sheet, column, startRow) { const begin = Math.max(startRow || 2, 2); const lastRow = Math.max(sheet.getLastRow(), begin); const values = sheet.getRange(begin, column, lastRow - begin + 1, 1).getDisplayValues(); for (let i=0;i<values.length;i+=1) if (!String(values[i][0]||'').trim()) return begin + i; return lastRow + 1; }
+function assertCaseIdUniqueAcrossWorkflow_(caseId) {
+  const queueCount = countCaseIdInSheetColumn_(ensureQueueSheet_(), caseId, 1, 2);
+  if (queueCount !== 1) throw new Error('manager キュー内の案件ID件数が不正です: ' + caseId);
+  if (isConfiguredId_(APP_CONFIG.menuSpreadsheetId)) {
+    const ss = SpreadsheetApp.openById(APP_CONFIG.menuSpreadsheetId);
+    assertCaseIdUniqueInSheet_(ss.getSheetByName(APP_CONFIG.menuStaffSheetName), caseId, '主務職シート');
+    assertCaseIdUniqueInSheet_(ss.getSheetByName(APP_CONFIG.menuDocumentsSheetName), caseId, '各種書類シート');
+  }
+  if (isConfiguredId_(APP_CONFIG.caseIdSpreadsheetId)) {
+    const sheet = SpreadsheetApp.openById(APP_CONFIG.caseIdSpreadsheetId).getSheetByName(APP_CONFIG.caseIdSheetName);
+    const count = countCaseIdInSheetColumn_(sheet, caseId, 1, 2);
+    if (count > 1) throw new Error('案件IDリストで案件IDが重複しています: ' + caseId);
+  }
+}
+function assertCaseIdUniqueInSheet_(sheet, caseId, label) { if (!sheet) return; const count = countCaseIdInSheetColumn_(sheet, caseId, 1, 2); if (count > 1) throw new Error(label + ' で案件IDが重複しています: ' + caseId); }
+function countCaseIdInSheetColumn_(sheet, caseId, column, startRow) {
+  if (!sheet) return 0;
+  const id = String(caseId || '').trim();
+  if (!id) return 0;
+  const begin = Math.max(startRow || 2, 1);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < begin) return 0;
+  const values = sheet.getRange(begin, column || 1, lastRow - begin + 1, 1).getDisplayValues();
+  let count = 0;
+  for (let i = 0; i < values.length; i += 1) if (String(values[i][0] || '').trim() === id) count += 1;
+  return count;
+}
+function writePayloadToSheet_(sheet, payload) { Object.keys(APP_CONFIG.fields).forEach((key) => writeValue_(sheet.getRange(APP_CONFIG.fields[key][0]), payload.fields[key], APP_CONFIG.fields[key][1])); APP_CONFIG.checklist.forEach((item) => { const row = (payload.checklist || []).find((entry) => entry.key === item.key) || { check: '', remark: '', action: '' }; sheet.getRange(item.checkCell).setValue(row.check); sheet.getRange(item.remarkCell).setValue(row.remark); sheet.getRange(item.actionCell).setValue(row.action); }); }
+function writeValue_(range, value, type) { if (type === 'date') { if (!value) return range.clearContent(); const date = new Date(value); if (Number.isNaN(date.getTime())) throw new Error('日付の形式が不正です。'); range.setValue(date).setNumberFormat('yyyy"年"m"月"d"日"'); return; } range.setValue(value || ''); }
+function placeTextStamp_(range, value) { range.setValue(value || '').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontWeight('bold').setFontSize(14); }
+function buildCaseContent_(fields) { return [String(fields.shipName || '').trim(), APP_CONFIG.documentType].filter(Boolean).join(' '); }
+function getMainSheet_() { const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APP_CONFIG.formSheetName); if (!sheet) throw new Error('入力シートが見つかりません。'); return sheet; }
+function getFolderByIdOrThrow_(folderId) { if (!isConfiguredId_(folderId)) throw new Error('フォルダIDを設定してください。'); return DriveApp.getFolderById(folderId); }
+function isConfiguredId_(value) { const text = String(value || '').trim(); return text && text.indexOf('[TODO:') !== 0; }

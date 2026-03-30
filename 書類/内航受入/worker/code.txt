@@ -1,0 +1,2133 @@
+const APP_CONFIG = {
+  siteCode: '4B',
+  caseIdSpreadsheetId: '1oHuKQ-GK6_quWuyjKEI4w4qa-4WzDJQRJQrCyU0MpLc',
+  caseIdSheetName: '案件IDリスト',
+  caseIdSheetId: 1724890318,
+  allowedSiteCodes: ['4B', '5B', '6B', '7B', '8B', '11B', '12B', '16B', '17B', '18B'],
+  mainSheetName: '4バース',
+  rosterSheetName: '名簿',
+  stampMapSheetName: 'IMG_MAP',
+  dropdownSettingsSheetName: 'プルダウン設定',
+  menuName: '便利ツール',
+  pdfFolderName: 'テスト　受入チェックシート',
+  pdfRangeA1: 'A1:T44',
+  logSpreadsheetId: '1tc2lPO-uLuxNTVBmQsC-LLH90SrgpMAJXwgPbJ4GJZo',
+  logSheetName: '各種書類',
+  logColumn: 5,
+  logStartRow: 6,
+  draftPdfFolderId: '1Zyx1B6rPY6prqoy9XIinxjkUATecdmwH',
+  finalPdfFolderId: '17B_eY6jGuow1Zk_0hjazNQEBzY9c6C6P',
+  queueSheetName: 'APPROVAL_QUEUE',
+  transferSpreadsheetId: '1R2iWMFmljTW6VoSrAu5LI78DSPoDh3u6KFzXsjCstKQ',
+  transferSheetName: '受入記録',
+  transferStartRow: 9,
+  stampCacheTitle: 'STAMP_CACHE',
+  stampCacheStartCell: 'W46',
+  stampCacheRow: 46,
+  stampCacheStartColumn: 23,
+  stampImageSize: 120,
+  hiddenStampFitRowHeight: 21,
+  departments: {
+    labelsRange: 'U2:W2',
+    checksRange: 'U4:W4',
+  },
+  stampSlots: {
+    chief: {
+      label: '課長印',
+      anchorCell: 'R2',
+      fitRangeA1: 'R2',
+      storeCell: 'W44',
+      mode: 'assigned',
+    },
+    staff: {
+      label: '主務職印',
+      anchorCell: 'S2',
+      fitRangeA1: 'S2',
+      storeCell: 'W46',
+      selectorCell: 'Y4',
+      mode: 'named',
+    },
+  },
+  fieldMap: {
+    workDate: { cell: 'A4', type: 'date' },
+    category: { cell: 'S4', type: 'text' },
+    berthNo: { cell: 'C6', type: 'number' },
+    oilType: { cell: 'J6', type: 'text' },
+    origin: { cell: 'R6', type: 'text' },
+    shipName: { cell: 'C7', type: 'text' },
+    quantity: { cell: 'J7', type: 'text' },
+    tankNo: { cell: 'R7', type: 'text' },
+    startVolume: { cell: 'O29', type: 'time' },
+    endVolume: { cell: 'R29', type: 'time' },
+    pumpCapacity: { cell: 'C41', type: 'number' },
+    pumpCount: { cell: 'G41', type: 'number' },
+    dischargePressure: { cell: 'K41', type: 'number' },
+    pierPressure: { cell: 'N41', type: 'number' },
+    bridgeFlowRate: { cell: 'R41', type: 'number' },
+    airPushCount: { cell: 'Q35', type: 'text' },
+    invoiceNote: { cell: 'A42', type: 'text' },
+    staffStampName: { cell: 'Y4', type: 'text' },
+  },
+  logEntries: [
+    { key: 'left1', time: 'E31', pressure: 'G31', flow: 'I31', amount: 'J31', person: 'L31' },
+    { key: 'left2', time: 'E32', pressure: 'G32', flow: 'I32', amount: 'J32', person: 'L32' },
+    { key: 'left3', time: 'E33', pressure: 'G33', flow: 'I33', amount: 'J33', person: 'L33' },
+    { key: 'right1', time: 'M31', pressure: 'O31', flow: 'Q31', amount: 'R31', person: 'S31' },
+    { key: 'right2', time: 'M32', pressure: 'O32', flow: 'Q32', amount: 'R32', person: 'S32' },
+    { key: 'right3', time: 'M33', pressure: 'O33', flow: 'Q33', amount: 'R33', person: 'S33' },
+  ],
+  requiredForPdf: [
+    { key: 'workDate', label: '日付' },
+    { key: 'berthNo', label: 'バースNo.' },
+    { key: 'shipName', label: '船名' },
+    { key: 'oilType', label: '油種' },
+    { key: 'quantity', label: '数量' },
+    { key: 'tankNo', label: '受入タンクNo.' },
+    { key: 'category', label: '白物/黒物/特殊' },
+    { key: 'staffStampName', label: '主務職印の名前' },
+  ],
+  clearRanges: [
+    'A4', 'C6', 'J6', 'R6', 'C7', 'J7', 'R7', 'T4',
+    'C41', 'G41', 'K41', 'N41', 'R41', 'Q35', 'A42', 'A43', 'A44',
+    'O29', 'R29', 'E31:T33', 'Y4',
+  ],
+};
+
+function showMainSidebar() {
+  hideStampCacheArea_(getMainSheet_());
+  const template = HtmlService.createTemplateFromFile('Sidebar');
+  template.initialState = 'null';
+  const html = template.evaluate().setTitle('便利ツール').setWidth(430);
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function showStampSidebar() {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function getAppState() {
+  return getMainSidebarState();
+}
+
+function getMainSidebarState() {
+  const sheet = getMainSheet_();
+  const selectedDepartment = getSelectedDepartment_();
+  const departments = getDepartments_();
+  const snapshot = createSheetSnapshot_(sheet, 'A1:Y44');
+  const roster = buildRosterState_(departments, selectedDepartment);
+  const shipNameSuggestions = getShipNameSuggestionState_(sheet);
+
+  return {
+    departments,
+    selectedDepartment,
+    fields: getCurrentFieldValuesFromSnapshot_(snapshot),
+    logs: getCurrentLogValuesFromSnapshot_(snapshot),
+    oilTypeOptions: getOilTypeOptions_(),
+    shipNameOptions: shipNameSuggestions.options,
+    recentShipNames: shipNameSuggestions.quickPicks,
+    roster,
+  };
+}
+
+function getStampSidebarState() {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function saveOperationRecord(payload) {
+  const sheet = getMainSheet_();
+  const data = normalizePayload_(payload);
+
+  if (data.department) {
+    applyDepartmentSelection_(sheet, data.department);
+    updatePersonValidations_(sheet, data.department);
+  }
+  writeMappedFields_(sheet, data.fields);
+  writeLogEntries_(sheet, data.logs);
+  restoreCheckboxStateMap_(sheet, data.checks || {});
+
+  if (data.fields.staffStampName) {
+    sheet.getRange(APP_CONFIG.stampSlots.staff.selectorCell).setValue(data.fields.staffStampName);
+  }
+
+  SpreadsheetApp.flush();
+  return getAppState();
+}
+
+function patchOperationRecord(payload) {
+  const sheet = getMainSheet_();
+  const data = payload || {};
+
+  if (Object.prototype.hasOwnProperty.call(data, 'department')) {
+    const department = String(data.department || '').trim();
+    if (department) {
+      applyDepartmentSelection_(sheet, department);
+      updatePersonValidations_(sheet, department);
+    } else {
+      clearDepartmentSelection_(sheet);
+      updatePersonValidations_(sheet, '');
+    }
+  }
+
+  if (data.fields && typeof data.fields === 'object') {
+    Object.keys(data.fields).forEach((key) => {
+      if (!APP_CONFIG.fieldMap[key]) return;
+      const field = APP_CONFIG.fieldMap[key];
+      writeCellByType_(sheet.getRange(field.cell), data.fields[key], field.type);
+    });
+  }
+
+  if (Array.isArray(data.logs)) {
+    const logMap = {};
+    data.logs.forEach((entry) => {
+      const key = String(entry && entry.key || '').trim();
+      if (key) logMap[key] = entry;
+    });
+
+    APP_CONFIG.logEntries.forEach((target) => {
+      const source = logMap[target.key];
+      if (!source) return;
+      if (Object.prototype.hasOwnProperty.call(source, 'time')) writeCellByType_(sheet.getRange(target.time), source.time, 'number');
+      if (Object.prototype.hasOwnProperty.call(source, 'pressure')) writeCellByType_(sheet.getRange(target.pressure), source.pressure, 'number');
+      if (Object.prototype.hasOwnProperty.call(source, 'flow')) writeCellByType_(sheet.getRange(target.flow), source.flow, 'number');
+      if (Object.prototype.hasOwnProperty.call(source, 'amount')) writeCellByType_(sheet.getRange(target.amount), source.amount, 'number');
+      if (Object.prototype.hasOwnProperty.call(source, 'person')) writeCellByType_(sheet.getRange(target.person), source.person, 'text');
+    });
+  }
+
+  SpreadsheetApp.flush();
+  return getMainSidebarState();
+}
+
+function pressStamp(slotKey, stampName) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function getOilTypeOptions_() {
+  const sheet = getSheetByNameOrThrow_(APP_CONFIG.dropdownSettingsSheetName);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return [];
+  const values = sheet.getRange(1, 1, lastRow, 1).getDisplayValues();
+  const seen = {};
+  return values
+    .map((row) => String(row[0] || '').trim())
+    .filter((value) => {
+      if (!value || seen[value]) return false;
+      seen[value] = true;
+      return true;
+    });
+}
+
+function getShipNameSuggestionState_(sheet) {
+  const seen = {};
+  const ordered = [];
+  const addName = (value) => {
+    const name = String(value || '').trim();
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    ordered.push(name);
+  };
+
+  addName(readCellForUi_(sheet.getRange(APP_CONFIG.fieldMap.shipName.cell), 'text'));
+
+  const queueSheet = SpreadsheetApp.getActive().getSheetByName(APP_CONFIG.queueSheetName);
+  if (queueSheet) {
+    const lastRow = queueSheet.getLastRow();
+    if (lastRow >= 2) {
+      const values = queueSheet.getRange(2, 5, lastRow - 1, 1).getDisplayValues();
+      for (let i = values.length - 1; i >= 0; i -= 1) {
+        addName(values[i][0]);
+      }
+    }
+  }
+
+  return {
+    options: ordered.slice(0, 200),
+    quickPicks: ordered.slice(0, 12),
+  };
+}
+
+function ensureOilTypeOption_(value) {
+  const oilType = String(value || '').trim();
+  if (!oilType) return false;
+
+  const sheet = getSheetByNameOrThrow_(APP_CONFIG.dropdownSettingsSheetName);
+  const lastRow = sheet.getLastRow();
+  const values = lastRow > 0 ? sheet.getRange(1, 1, lastRow, 1).getDisplayValues() : [];
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === oilType) return false;
+  }
+  sheet.getRange(lastRow + 1, 1).setValue(oilType);
+  return true;
+}
+
+function saveStampAssignments(assignments) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function clearOperationSheet() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert('確認', '入力内容と表示中の印鑑をクリアしますか？', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) return;
+
+  const sheet = getMainSheet_();
+  APP_CONFIG.clearRanges.forEach((rangeA1) => sheet.getRange(rangeA1).clearContent());
+  sheet.getRange(1, 3, sheet.getMaxRows(), 1).uncheck();
+  resetVisibleStamps_(sheet);
+  hideStampCacheArea_(sheet);
+  clearDepartmentSelection_(sheet);
+  updatePersonValidations_(sheet, '');
+  setCurrentQueueRecordId_('');
+
+  ui.alert('完了', '入力内容と印鑑表示を初期状態に戻しました。', ui.ButtonSet.OK);
+}
+
+function refreshStampCache() {
+  const sheet = getMainSheet_();
+  const mapSheet = getSheetByNameOrThrow_(APP_CONFIG.stampMapSheetName);
+  const values = mapSheet.getDataRange().getDisplayValues();
+  if (values.length < 2) throw new Error('IMG_MAP に印鑑マスタがありません。');
+
+  resetVisibleStamps_(sheet);
+  removeImagesOnCacheRow_(sheet);
+
+  const rows = values.slice(1).filter((row) => row[0] && row[1]);
+  rows.forEach((row, index) => {
+    const name = String(row[0]).trim();
+    const fileId = String(row[1]).trim();
+    const file = DriveApp.getFileById(fileId);
+    const column = APP_CONFIG.stampCacheStartColumn + index;
+    const image = sheet.insertImage(file.getBlob(), column, APP_CONFIG.stampCacheRow);
+    image.setWidth(APP_CONFIG.stampImageSize).setHeight(APP_CONFIG.stampImageSize);
+    image.setAltTextTitle(APP_CONFIG.stampCacheTitle);
+    image.setAltTextDescription(name);
+  });
+
+  SpreadsheetApp.getActive().toast(`印鑑キャッシュを更新しました: ${rows.length}件`);
+  return getStampSidebarState();
+}
+
+function getStampMapNames_() {
+  const mapSheet = getSheetByNameOrThrow_(APP_CONFIG.stampMapSheetName);
+  const values = mapSheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+
+  const seen = {};
+  return values.slice(1)
+    .map((row) => String(row[0] || '').trim())
+    .filter((name) => {
+      if (!name || seen[name]) return false;
+      seen[name] = true;
+      return true;
+    });
+}
+
+function savePdfAndLogLink() {
+  return saveDraftPdfAndQueue();
+}
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function getMainSheet_() {
+  return getSheetByNameOrThrow_(APP_CONFIG.mainSheetName);
+}
+
+function getSheetByNameOrThrow_(name) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  if (!sheet) throw new Error(`シート「${name}」が見つかりません。`);
+  return sheet;
+}
+
+function getDepartments_() {
+  const sheet = getMainSheet_();
+  return sheet.getRange(APP_CONFIG.departments.labelsRange).getDisplayValues()[0]
+    .map((label) => String(label || '').trim())
+    .filter(String);
+}
+
+function getSelectedDepartment_() {
+  const sheet = getMainSheet_();
+  const labels = sheet.getRange(APP_CONFIG.departments.labelsRange).getDisplayValues()[0];
+  const checks = sheet.getRange(APP_CONFIG.departments.checksRange).getValues()[0];
+  for (let i = 0; i < checks.length; i += 1) {
+    if (checks[i] === true) return String(labels[i] || '').trim();
+  }
+  return '';
+}
+
+function clearDepartmentSelection_(sheet) {
+  sheet.getRange(APP_CONFIG.departments.checksRange).setValues([[false, false, false]]);
+}
+
+function applyDepartmentSelection_(sheet, department) {
+  const value = String(department || '').trim();
+  const labels = sheet.getRange(APP_CONFIG.departments.labelsRange).getDisplayValues()[0];
+  const checks = labels.map((label) => String(label || '').trim() === value);
+  sheet.getRange(APP_CONFIG.departments.checksRange).setValues([checks]);
+}
+
+function getAllRosterNames_() {
+  const sheet = getSheetByNameOrThrow_(APP_CONFIG.rosterSheetName);
+  const values = sheet.getDataRange().getDisplayValues();
+  const seen = {};
+  const names = [];
+
+  for (let c = 0; c < values[0].length; c += 2) {
+    for (let r = 1; r < values.length; r += 1) {
+      const name = String(values[r][c + 1] || '').trim();
+      if (!name || seen[name]) continue;
+      seen[name] = true;
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+function getRosterMap_() {
+  const departments = getDepartments_();
+  const map = {};
+  departments.forEach((department) => {
+    map[department] = getNamesByDepartment_(department);
+  });
+  return map;
+}
+
+function getNamesByDepartment_(department) {
+  const selectedDepartment = String(department || '').trim();
+  const sheet = getSheetByNameOrThrow_(APP_CONFIG.rosterSheetName);
+  const values = sheet.getDataRange().getDisplayValues();
+  const primary = [];
+  const others = [];
+  const seen = {};
+
+  for (let c = 0; c < values[0].length; c += 2) {
+    for (let r = 1; r < values.length; r += 1) {
+      const dept = String(values[r][c] || '').trim();
+      const name = String(values[r][c + 1] || '').trim();
+      if (!name || seen[name]) continue;
+      seen[name] = true;
+      if (dept === selectedDepartment) primary.push(name);
+      else others.push(name);
+    }
+  }
+  return primary.concat(others);
+}
+
+function buildRosterState_(departments, selectedDepartment) {
+  const sheet = getSheetByNameOrThrow_(APP_CONFIG.rosterSheetName);
+  const values = sheet.getDataRange().getDisplayValues();
+  const records = [];
+  const seen = {};
+  const departmentList = Array.isArray(departments) ? departments.slice() : [];
+
+  if (!values.length) {
+    return {
+      allNames: [],
+      namesByDepartment: [],
+      byDepartment: {},
+    };
+  }
+
+  for (let c = 0; c < values[0].length; c += 2) {
+    for (let r = 1; r < values.length; r += 1) {
+      const department = String(values[r][c] || '').trim();
+      const name = String(values[r][c + 1] || '').trim();
+      if (!name || seen[name]) continue;
+      seen[name] = true;
+      records.push({ department, name });
+      if (department && departmentList.indexOf(department) === -1) {
+        departmentList.push(department);
+      }
+    }
+  }
+
+  const allNames = records.map((record) => record.name);
+  const byDepartment = {};
+  departmentList.forEach((department) => {
+    const primary = [];
+    const others = [];
+    records.forEach((record) => {
+      if (record.department === department) primary.push(record.name);
+      else others.push(record.name);
+    });
+    byDepartment[department] = primary.concat(others);
+  });
+
+  return {
+    allNames,
+    namesByDepartment: selectedDepartment ? (byDepartment[selectedDepartment] || []) : allNames,
+    byDepartment,
+  };
+}
+
+function updatePersonValidations_(sheet, department) {
+  const names = getNamesByDepartment_(department);
+  const ranges = ['L31:L33', 'S31:S33', APP_CONFIG.stampSlots.staff.selectorCell];
+
+  ranges.forEach((rangeA1) => sheet.getRange(rangeA1).clearDataValidations());
+  if (!names.length) return;
+
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(names, true)
+    .setAllowInvalid(false)
+    .build();
+
+  ranges.forEach((rangeA1) => sheet.getRange(rangeA1).setDataValidation(rule));
+}
+
+function getCurrentFieldValues_(sheet) {
+  const values = {};
+  Object.keys(APP_CONFIG.fieldMap).forEach((key) => {
+    const field = APP_CONFIG.fieldMap[key];
+    values[key] = readCellForUi_(sheet.getRange(field.cell), field.type);
+  });
+  return values;
+}
+
+function getCurrentLogValues_(sheet) {
+  return APP_CONFIG.logEntries.map((entry) => ({
+    key: entry.key,
+    time: readCellForUi_(sheet.getRange(entry.time), 'number'),
+    pressure: readCellForUi_(sheet.getRange(entry.pressure), 'number'),
+    flow: readCellForUi_(sheet.getRange(entry.flow), 'number'),
+    amount: readCellForUi_(sheet.getRange(entry.amount), 'number'),
+    person: readCellForUi_(sheet.getRange(entry.person), 'text'),
+  }));
+}
+
+function createSheetSnapshot_(sheet, rangeA1) {
+  const range = sheet.getRange(rangeA1);
+  return {
+    startRow: range.getRow(),
+    startColumn: range.getColumn(),
+    values: range.getValues(),
+    displayValues: range.getDisplayValues(),
+  };
+}
+
+function getCurrentFieldValuesFromSnapshot_(snapshot) {
+  const values = {};
+  Object.keys(APP_CONFIG.fieldMap).forEach((key) => {
+    const field = APP_CONFIG.fieldMap[key];
+    values[key] = readSnapshotCell_(snapshot, field.cell, field.type);
+  });
+  return values;
+}
+
+function getCurrentLogValuesFromSnapshot_(snapshot) {
+  return APP_CONFIG.logEntries.map((entry) => ({
+    key: entry.key,
+    time: readSnapshotCell_(snapshot, entry.time, 'number'),
+    pressure: readSnapshotCell_(snapshot, entry.pressure, 'number'),
+    flow: readSnapshotCell_(snapshot, entry.flow, 'number'),
+    amount: readSnapshotCell_(snapshot, entry.amount, 'number'),
+    person: readSnapshotCell_(snapshot, entry.person, 'text'),
+  }));
+}
+
+function readSnapshotCell_(snapshot, a1, type) {
+  const ref = parseSingleCellA1_(a1);
+  const rowIndex = ref.row - snapshot.startRow;
+  const columnIndex = ref.column - snapshot.startColumn;
+  if (rowIndex < 0 || columnIndex < 0) return '';
+
+  const valueRow = snapshot.values[rowIndex];
+  const displayRow = snapshot.displayValues[rowIndex];
+  if (!valueRow || !displayRow) return '';
+
+  const value = valueRow[columnIndex];
+  const display = displayRow[columnIndex];
+  if (value === '' || value === null) return '';
+
+  if (type === 'date' && value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  if (type === 'time') {
+    return normalizeTimeText_(display);
+  }
+  return String(display || '').trim();
+}
+
+function parseSingleCellA1_(a1) {
+  const match = String(a1 || '').trim().match(/^([A-Z]+)(\d+)$/i);
+  if (!match) throw new Error(`Unsupported A1 notation: ${a1}`);
+  return {
+    column: a1ColumnToNumber_(match[1].toUpperCase()),
+    row: Number(match[2]),
+  };
+}
+
+function a1ColumnToNumber_(letters) {
+  let column = 0;
+  for (let i = 0; i < letters.length; i += 1) {
+    column = (column * 26) + (letters.charCodeAt(i) - 64);
+  }
+  return column;
+}
+
+function readCellForUi_(range, type) {
+  const value = range.getValue();
+  if (value === '' || value === null) return '';
+
+  if (type === 'date' && value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  if (type === 'time') {
+    return normalizeTimeText_(range.getDisplayValue());
+  }
+  return String(range.getDisplayValue() || '').trim();
+}
+
+function normalizeTimeText_(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) return '';
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return text;
+  return `${String(Number(match[1])).padStart(2, '0')}:${match[2]}`;
+}
+
+function normalizePayload_(payload) {
+  const source = payload || {};
+  return {
+    department: String(source.department || '').trim(),
+    fields: source.fields || {},
+    logs: Array.isArray(source.logs) ? source.logs : [],
+    checks: source.checks || {},
+  };
+}
+
+function writeMappedFields_(sheet, fields) {
+  Object.keys(APP_CONFIG.fieldMap).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(fields, key)) return;
+    if (!hasInputValue_(fields[key])) return;
+    const field = APP_CONFIG.fieldMap[key];
+    writeCellByType_(sheet.getRange(field.cell), fields[key], field.type);
+  });
+}
+
+function writeLogEntries_(sheet, logs) {
+  const logMap = {};
+  logs.forEach((entry) => {
+    logMap[String(entry.key || '').trim()] = entry;
+  });
+
+  APP_CONFIG.logEntries.forEach((target) => {
+    const source = logMap[target.key];
+    if (!source) return;
+    if (hasInputValue_(source.time)) writeCellByType_(sheet.getRange(target.time), source.time, 'number');
+    if (hasInputValue_(source.pressure)) writeCellByType_(sheet.getRange(target.pressure), source.pressure, 'number');
+    if (hasInputValue_(source.flow)) writeCellByType_(sheet.getRange(target.flow), source.flow, 'number');
+    if (hasInputValue_(source.amount)) writeCellByType_(sheet.getRange(target.amount), source.amount, 'number');
+    if (hasInputValue_(source.person)) writeCellByType_(sheet.getRange(target.person), source.person, 'text');
+  });
+}
+
+function hasInputValue_(value) {
+  return String(value == null ? '' : value).trim() !== '';
+}
+
+function writeCellByType_(range, rawValue, type) {
+  const value = String(rawValue == null ? '' : rawValue).trim();
+  if (!value) {
+    range.clearContent();
+    return;
+  }
+
+  if (type === 'date') {
+    const parts = parseSheetDateParts_(value);
+    if (!parts) throw new Error(`日付形式が不正です: ${value}`);
+    range.setFormula(`=DATE(${parts.year},${parts.month},${parts.day})`);
+    return;
+  }
+
+  if (type === 'time') {
+    const parts = parseSheetTimeParts_(value);
+    if (!parts) throw new Error(`時刻形式が不正です: ${value}`);
+    range.setFormula(`=TIME(${parts.hour},${parts.minute},0)`);
+    range.setNumberFormat('hh:mm');
+    return;
+  }
+
+  if (type === 'number') {
+    const numeric = parseLooseNumber_(value);
+    if (!Number.isFinite(numeric)) throw new Error(`数値形式が不正です: ${value}`);
+    range.setValue(numeric);
+    return;
+  }
+
+  range.setValue(value);
+}
+
+function parseSheetDateParts_(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+function parseSheetTimeParts_(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+
+  let hour;
+  let minute;
+  let match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    hour = Number(match[1]);
+    minute = Number(match[2]);
+  } else {
+    match = text.replace(/[^0-9]/g, '').match(/^(\d{3,4})$/);
+    if (!match) return null;
+    const digits = match[1].padStart(4, '0');
+    hour = Number(digits.slice(0, 2));
+    minute = Number(digits.slice(2, 4));
+  }
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { hour, minute };
+}
+
+function parseLooseNumber_(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) return NaN;
+  const normalized = text
+    .replace(/,/g, '')
+    .replace(/[Ａ-Ｚａ-ｚ０-９．－]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 65248))
+    .replace(/[^\d.\-+]/g, '');
+  if (!normalized || normalized === '+' || normalized === '-' || normalized === '.' || normalized === '+.' || normalized === '-.') {
+    return NaN;
+  }
+  return Number(normalized);
+}
+
+function getCurrentStampStatus_(sheet) {
+  return {
+    chief: getStampAnchorLabel_(sheet, APP_CONFIG.stampSlots.chief.anchorCell),
+    staff: getStampAnchorLabel_(sheet, APP_CONFIG.stampSlots.staff.anchorCell),
+  };
+}
+
+function getCurrentStampStatusFromIndex_(imageIndex) {
+  return {
+    chief: getStampAnchorLabelFromIndex_(imageIndex, APP_CONFIG.stampSlots.chief.anchorCell),
+    staff: getStampAnchorLabelFromIndex_(imageIndex, APP_CONFIG.stampSlots.staff.anchorCell),
+  };
+}
+
+function getStampAnchorLabelFromIndex_(imageIndex, anchorCellA1) {
+  const image = imageIndex.byAnchor[anchorCellA1];
+  if (!image) return '';
+  return String(image.getAltTextDescription() || '').trim() || '陦ｨ遉ｺ荳ｭ';
+}
+
+function buildImageIndex_(images) {
+  const byAnchor = {};
+  const byName = {};
+
+  (images || []).forEach((image) => {
+    const anchor = image.getAnchorCell().getA1Notation();
+    if (!byAnchor[anchor]) byAnchor[anchor] = image;
+
+    const normalizedName = normalizeStampName_(image.getAltTextDescription());
+    if (normalizedName && !byName[normalizedName]) byName[normalizedName] = image;
+  });
+
+  return { byAnchor, byName };
+}
+
+function getStampAnchorLabel_(sheet, anchorCellA1) {
+  const image = findImageAnchoredAtA1_(sheet, anchorCellA1);
+  if (!image) return '';
+  return String(image.getAltTextDescription() || '').trim() || '表示中';
+}
+
+function resetVisibleStamps_(sheet) {
+  placeBackAssignedStamp_(sheet, APP_CONFIG.stampSlots.chief);
+  placeBackNamedStamp_(sheet, APP_CONFIG.stampSlots.staff);
+}
+
+function restoreQueueStamps_(stamps) {
+  const sheet = getMainSheet_();
+  const values = stamps || {};
+
+  resetVisibleStamps_(sheet);
+  sheet.getRange(APP_CONFIG.stampSlots.staff.selectorCell).clearContent();
+
+  if (values.chief) {
+    placeNamedStamp_(sheet, APP_CONFIG.stampSlots.chief, values.chief);
+  }
+  if (values.staff) {
+    sheet.getRange(APP_CONFIG.stampSlots.staff.selectorCell).setValue(values.staff);
+    placeNamedStamp_(sheet, APP_CONFIG.stampSlots.staff, values.staff);
+  }
+
+  SpreadsheetApp.flush();
+  hideStampCacheArea_(sheet);
+}
+
+function placeAssignedStamp_(sheet, slotKey, slot) {
+  const assignments = getStampAssignments_(sheet);
+  const assignedName = String(assignments[slotKey] || '').trim();
+  if (!assignedName) {
+    throw new Error(`${slot.label} の連動者が未設定です。印鑑メニューで設定してください。`);
+  }
+
+  placeBackAssignedStamp_(sheet, slot);
+  const target = findStampImageByNameAny_(sheet, assignedName);
+  if (!target) {
+    throw new Error(`印鑑「${assignedName}」が見つかりません。印鑑キャッシュ更新か連動者設定を確認してください。`);
+  }
+  moveOtherImageBackFromAnchor_(sheet, slot.anchorCell, target);
+  moveImageToCell_(sheet, target, slot.anchorCell);
+}
+
+function placeBackAssignedStamp_(sheet, slot) {
+  const image = findImageAnchoredAtA1_(sheet, slot.anchorCell);
+  if (!image) return;
+  const cacheCell = getFirstEmptyCacheCell_(sheet);
+  moveImageToCell_(sheet, image, cacheCell.getA1Notation());
+}
+
+function placeNamedStamp_(sheet, slot, name) {
+  placeBackNamedStamp_(sheet, slot);
+
+  const target = findStampImageByNameAny_(sheet, name);
+  if (!target) {
+    throw new Error(`印鑑キャッシュに「${name}」がありません。印鑑キャッシュを更新してください。`);
+  }
+
+  moveOtherImageBackFromAnchor_(sheet, slot.anchorCell, target);
+  moveImageToCell_(sheet, target, slot.anchorCell);
+}
+
+function placeBackNamedStamp_(sheet, slot) {
+  const image = findImageAnchoredAtA1_(sheet, slot.anchorCell);
+  if (!image) return;
+  const cacheCell = getFirstEmptyCacheCell_(sheet);
+  moveImageToCell_(sheet, image, cacheCell.getA1Notation());
+}
+
+function getFirstEmptyCacheCell_(sheet) {
+  const occupied = {};
+  sheet.getImages().forEach((image) => {
+    const anchor = image.getAnchorCell();
+    if (anchor.getRow() !== APP_CONFIG.stampCacheRow) return;
+    occupied[anchor.getColumn()] = true;
+  });
+
+  let column = APP_CONFIG.stampCacheStartColumn;
+  while (occupied[column]) column += 1;
+  ensureColumns_(sheet, column);
+  return sheet.getRange(APP_CONFIG.stampCacheRow, column);
+}
+
+function findCachedStampByName_(sheet, name) {
+  const targetName = normalizeStampName_(name);
+  const images = sheet.getImages();
+
+  for (let i = 0; i < images.length; i += 1) {
+    const image = images[i];
+    const anchor = image.getAnchorCell();
+    if (anchor.getRow() !== APP_CONFIG.stampCacheRow) continue;
+    const currentName = normalizeStampName_(image.getAltTextDescription());
+    if (currentName === targetName) return image;
+  }
+  return null;
+}
+
+function findStampImageByNameAny_(sheet, name) {
+  const targetName = normalizeStampName_(name);
+  const images = sheet.getImages();
+  for (let i = 0; i < images.length; i += 1) {
+    const currentName = normalizeStampName_(images[i].getAltTextDescription());
+    if (currentName === targetName) return images[i];
+  }
+  return null;
+}
+
+function moveOtherImageBackFromAnchor_(sheet, anchorA1, keepImage) {
+  const current = findImageAnchoredAtA1_(sheet, anchorA1);
+  if (!current || current === keepImage) return;
+  const cacheCell = getFirstEmptyCacheCell_(sheet);
+  moveImageToCell_(sheet, current, cacheCell.getA1Notation());
+}
+
+function normalizeStampName_(name) {
+  return String(name || '')
+    .replace(/（.*?）/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function getStampAssignments_(sheet) {
+  const props = PropertiesService.getDocumentProperties();
+  const raw = props.getProperty('stampAssignments');
+  const saved = raw ? normalizeAssignments_(JSON.parse(raw)) : {};
+
+  if (!saved.chief) {
+    const inferred = inferStampAssignments_(sheet);
+    const merged = normalizeAssignments_({
+      chief: saved.chief || inferred.chief,
+    });
+    props.setProperty('stampAssignments', JSON.stringify(merged));
+    return merged;
+  }
+
+  return saved;
+}
+
+function getStampAssignmentsFromIndex_(sheet, imageIndex) {
+  const props = PropertiesService.getDocumentProperties();
+  const raw = props.getProperty('stampAssignments');
+  const saved = raw ? normalizeAssignments_(JSON.parse(raw)) : {};
+
+  if (!saved.chief) {
+    const inferred = inferStampAssignmentsFromIndex_(sheet, imageIndex);
+    const merged = normalizeAssignments_({
+      chief: saved.chief || inferred.chief,
+    });
+    props.setProperty('stampAssignments', JSON.stringify(merged));
+    return merged;
+  }
+
+  return saved;
+}
+
+function inferStampAssignments_(sheet) {
+  const chiefImage =
+    findImageAnchoredAtA1_(sheet, APP_CONFIG.stampSlots.chief.anchorCell) ||
+    findImageAnchoredAtA1_(sheet, APP_CONFIG.stampSlots.chief.storeCell);
+
+  return normalizeAssignments_({
+    chief: chiefImage ? chiefImage.getAltTextDescription() : '',
+  });
+}
+
+function getCheckboxStateMap_(sheet) {
+  const range = sheet.getRange(APP_CONFIG.pdfRangeA1);
+  const validations = range.getDataValidations();
+  const states = {};
+
+  for (let row = 0; row < validations.length; row += 1) {
+    for (let column = 0; column < validations[row].length; column += 1) {
+      const rule = validations[row][column];
+      if (!rule || rule.getCriteriaType() !== SpreadsheetApp.DataValidationCriteria.CHECKBOX) continue;
+      const cell = sheet.getRange(range.getRow() + row, range.getColumn() + column);
+      const a1 = cell.getA1Notation();
+      states[a1] = cell.isChecked() === true;
+    }
+  }
+  return states;
+}
+
+function restoreCheckboxStateMap_(sheet, states) {
+  const savedStates = states || {};
+  const range = sheet.getRange(APP_CONFIG.pdfRangeA1);
+  const validations = range.getDataValidations();
+
+  for (let row = 0; row < validations.length; row += 1) {
+    for (let column = 0; column < validations[row].length; column += 1) {
+      const rule = validations[row][column];
+      if (!rule || rule.getCriteriaType() !== SpreadsheetApp.DataValidationCriteria.CHECKBOX) continue;
+      const cell = sheet.getRange(range.getRow() + row, range.getColumn() + column);
+      const a1 = cell.getA1Notation();
+      if (savedStates[a1] === true) cell.check();
+      else cell.uncheck();
+    }
+  }
+}
+
+function inferStampAssignmentsFromIndex_(sheet, imageIndex) {
+  const chiefImage =
+    imageIndex.byAnchor[APP_CONFIG.stampSlots.chief.anchorCell] ||
+    imageIndex.byAnchor[APP_CONFIG.stampSlots.chief.storeCell];
+
+  return normalizeAssignments_({
+    chief: chiefImage ? chiefImage.getAltTextDescription() : '',
+  });
+}
+
+function normalizeAssignments_(assignments) {
+  return {
+    chief: String(assignments.chief || '').trim(),
+  };
+}
+
+function findImageAnchoredAtA1_(sheet, a1) {
+  const images = sheet.getImages();
+  for (let i = 0; i < images.length; i += 1) {
+    if (images[i].getAnchorCell().getA1Notation() === a1) return images[i];
+  }
+  return null;
+}
+
+function moveImageToCell_(sheet, image, targetA1) {
+  const target = sheet.getRange(targetA1);
+  image.setAnchorCell(target);
+  image.setAnchorCellXOffset(0);
+  image.setAnchorCellYOffset(0);
+  fitImageToCell_(sheet, image, target);
+}
+
+function fitImageToCell_(sheet, image, cellRange) {
+  const targetRange = getImageFitRange_(cellRange);
+  const col = targetRange.getColumn();
+  const row = targetRange.getRow();
+  const maxW = Math.max(1, getRangePixelWidth_(sheet, targetRange) - 4);
+  const maxH = Math.max(1, getRangePixelHeight_(sheet, targetRange) - 4);
+  const width = image.getWidth();
+  const height = image.getHeight();
+  const scale = Math.min(maxW / Math.max(width, 1), maxH / Math.max(height, 1));
+  const newW = Math.max(1, Math.floor(width * scale));
+  const newH = Math.max(1, Math.floor(height * scale));
+
+  image.setWidth(newW).setHeight(newH);
+  image.setAnchorCellXOffset(Math.max(0, Math.floor((getRangePixelWidth_(sheet, targetRange) - newW) / 2)));
+  image.setAnchorCellYOffset(Math.max(0, Math.floor((getRangePixelHeight_(sheet, targetRange) - newH) / 2)));
+}
+
+function getImageFitRange_(cellRange) {
+  const a1 = cellRange.getA1Notation();
+  const slotKeys = Object.keys(APP_CONFIG.stampSlots);
+  for (let i = 0; i < slotKeys.length; i += 1) {
+    const slot = APP_CONFIG.stampSlots[slotKeys[i]];
+    if (slot.anchorCell === a1 && slot.fitRangeA1) {
+      return cellRange.getSheet().getRange(slot.fitRangeA1);
+    }
+  }
+  const merged = cellRange.getMergedRanges();
+  return merged && merged.length ? merged[0] : cellRange;
+}
+
+function getRangePixelWidth_(sheet, range) {
+  let total = 0;
+  for (let column = range.getColumn(); column < range.getColumn() + range.getNumColumns(); column += 1) {
+    total += sheet.getColumnWidth(column);
+  }
+  return total;
+}
+
+function getRangePixelHeight_(sheet, range) {
+  let total = 0;
+  for (let row = range.getRow(); row < range.getRow() + range.getNumRows(); row += 1) {
+    const rowHeight = sheet.getRowHeight(row);
+    const isHidden = sheet.isRowHiddenByUser(row) || rowHeight <= 0;
+    total += isHidden ? APP_CONFIG.hiddenStampFitRowHeight : rowHeight;
+  }
+  return total;
+}
+
+function ensureColumns_(sheet, requiredCols) {
+  const current = sheet.getMaxColumns();
+  if (current < requiredCols) sheet.insertColumnsAfter(current, requiredCols - current);
+}
+
+function removeImagesOnCacheRow_(sheet) {
+  const images = sheet.getImages();
+  for (let i = images.length - 1; i >= 0; i -= 1) {
+    const anchor = images[i].getAnchorCell();
+    if (anchor.getRow() === APP_CONFIG.stampCacheRow) {
+      images[i].remove();
+    }
+  }
+}
+
+function hideStampCacheArea_(sheet) {
+  try {
+    sheet.showColumns(APP_CONFIG.stampCacheStartColumn, 1);
+  } catch (error) {
+    // Ignore if the column is already visible.
+  }
+
+  try {
+    sheet.hideRows(APP_CONFIG.stampCacheRow, 1);
+  } catch (error) {
+    // Ignore if the row is already hidden.
+  }
+}
+
+function buildPdfBaseName_(fields) {
+  return [fields.workDate, fields.berthNo, fields.shipName].filter(Boolean).join(' ');
+}
+
+function getPdfFolder_() {
+  const folders = DriveApp.getFoldersByName(APP_CONFIG.pdfFolderName);
+  if (!folders.hasNext()) {
+    throw new Error(`フォルダ「${APP_CONFIG.pdfFolderName}」が見つかりません。`);
+  }
+  return folders.next();
+}
+
+function getUniqueFileName_(folder, baseName) {
+  let candidate = baseName;
+  let index = 2;
+  while (folder.getFilesByName(candidate + '.pdf').hasNext()) {
+    candidate = `${baseName}_${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
+function appendLogLink_(url, linkText) {
+  const logSs = SpreadsheetApp.openById(APP_CONFIG.logSpreadsheetId);
+  const logSheet = logSs.getSheetByName(APP_CONFIG.logSheetName);
+  if (!logSheet) throw new Error(`ログシート「${APP_CONFIG.logSheetName}」が見つかりません。`);
+
+  const startRow = APP_CONFIG.logStartRow;
+  const col = APP_CONFIG.logColumn;
+  const lastRow = Math.max(logSheet.getLastRow(), startRow);
+  const values = logSheet.getRange(startRow, col, lastRow - startRow + 1, 1).getDisplayValues();
+
+  let writeRow = startRow;
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (String(values[i][0] || '').trim()) {
+      writeRow = startRow + i + 1;
+      break;
+    }
+  }
+
+  const safeText = String(linkText).replace(/"/g, '""');
+  logSheet.getRange(writeRow, col).setFormula(`=HYPERLINK("${url}","${safeText}")`);
+  return writeRow;
+}
+
+function upsertLogLink_(recordId, url, linkText, statusLabel) {
+  const logSs = SpreadsheetApp.openById(APP_CONFIG.logSpreadsheetId);
+  const logSheet = logSs.getSheetByName(APP_CONFIG.logSheetName);
+  if (!logSheet) throw new Error(`ログシート「${APP_CONFIG.logSheetName}」が見つかりません。`);
+
+  const writeRow = findLogRowByRecordId_(logSheet, recordId) || findNextLogRow_(logSheet);
+  const linkCell = logSheet.getRange(writeRow, APP_CONFIG.logColumn);
+  const statusCell = logSheet.getRange(writeRow, APP_CONFIG.logColumn + 1);
+  const safeText = String(linkText || '').replace(/"/g, '""');
+  const status = String(statusLabel || '').trim();
+
+  linkCell.setFormula(`=HYPERLINK("${url}","${safeText}")`);
+  if (status === '完了') linkCell.clearNote();
+  else linkCell.setNote(String(recordId || '').trim());
+  statusCell.setValue(status);
+  return writeRow;
+}
+
+function findLogRowByRecordId_(sheet, recordId) {
+  const id = String(recordId || '').trim();
+  if (!id) return 0;
+
+  const startRow = APP_CONFIG.logStartRow;
+  const lastRow = Math.max(sheet.getLastRow(), startRow);
+  for (let row = startRow; row <= lastRow; row += 1) {
+    if (String(sheet.getRange(row, APP_CONFIG.logColumn).getNote() || '').trim() === id) {
+      return row;
+    }
+  }
+  return 0;
+}
+
+function clearLogLinkByRecordId_(recordId) {
+  const id = String(recordId || '').trim();
+  if (!id) return;
+
+  const logSs = SpreadsheetApp.openById(APP_CONFIG.logSpreadsheetId);
+  const logSheet = logSs.getSheetByName(APP_CONFIG.logSheetName);
+  if (!logSheet) return;
+
+  const rowIndex = findLogRowByRecordId_(logSheet, id);
+  if (!rowIndex) return;
+
+  logSheet.getRange(rowIndex, APP_CONFIG.logColumn, 1, 2).clearContent();
+  logSheet.getRange(rowIndex, APP_CONFIG.logColumn).clearNote();
+}
+
+function findNextLogRow_(sheet) {
+  const startRow = APP_CONFIG.logStartRow;
+  const lastRow = Math.max(sheet.getLastRow(), startRow);
+  const values = sheet.getRange(startRow, APP_CONFIG.logColumn, lastRow - startRow + 1, 1).getDisplayValues();
+
+  let writeRow = startRow;
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (String(values[i][0] || '').trim()) {
+      writeRow = startRow + i + 1;
+      break;
+    }
+  }
+  return writeRow;
+}
+
+function appendTransferRow_(data) {
+  const sheet = getTransferSheet_();
+  const row = buildTransferRow_(data || {});
+  const writeRow = findNextTransferRow_(sheet);
+  sheet.getRange(writeRow, 1, 1, row.length).setValues([row]);
+  return writeRow;
+}
+
+function saveDraftPdfAndQueue() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = getMainSheet_();
+  const fields = getCurrentFieldValues_(sheet);
+  const logs = getCurrentLogValues_(sheet);
+  const requiredItems = [
+    { key: 'workDate', label: '日付' },
+    { key: 'berthNo', label: 'バースNo.' },
+    { key: 'shipName', label: '船名' },
+    { key: 'oilType', label: '油種' },
+    { key: 'quantity', label: '数量' },
+    { key: 'tankNo', label: '受入タンクNo.' },
+    { key: 'category', label: '一般/黒物/機動' },
+  ];
+  const missing = requiredItems
+    .filter((item) => !String(fields[item.key] || '').trim())
+    .map((item) => item.label);
+
+  if (missing.length) {
+    ui.alert('入力不足のため中止', '次の項目が未入力です。\n\n・' + missing.join('\n・'), ui.ButtonSet.OK);
+    return null;
+  }
+
+  const confirm = ui.alert('確認', '仮PDFを保存して承認待ち一覧に追加します。よろしいですか？', ui.ButtonSet.OK_CANCEL);
+  if (confirm !== ui.Button.OK) return null;
+
+  const reusedRecordId = resolveDraftQueueRecordId_(getCurrentQueueRecordId_(), {
+    department: getSelectedDepartment_(),
+    fields,
+    logs,
+  });
+  const file = exportSheetPdfToFolder_(getFolderByIdOrThrow_(APP_CONFIG.draftPdfFolderId), `${buildPdfBaseName_(fields)} 仮`);
+  const record = upsertQueueRecord_({
+    recordId: reusedRecordId,
+    department: getSelectedDepartment_(),
+    fields,
+    logs,
+    checks: getCheckboxStateMap_(sheet),
+    stamps: getCurrentStampStatus_(sheet),
+    draftPdfUrl: file.getUrl(),
+    draftPdfName: file.getName(),
+    status: 'staff_pending',
+  });
+
+  setCurrentQueueRecordId_(record.recordId);
+  const writeRow = upsertLogLink_(record.recordId, file.getUrl(), file.getName(), '未完');
+  appendTransferRow_({
+    recordId: record.recordId,
+    status: 'draft',
+    department: getSelectedDepartment_(),
+    fields,
+    logs,
+    pdfUrl: file.getUrl(),
+    pdfName: file.getName(),
+  });
+  ui.alert('完了', `仮PDFを保存し、案件ID ${record.recordId} を承認待ち一覧へ登録しました。\n${APP_CONFIG.logSheetName}!E${writeRow} にリンクも追加しました。`, ui.ButtonSet.OK);
+  return getMainSidebarState();
+}
+
+function finalizeCurrentRecordPdf() {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function finalizeCurrentRecordSilently_(recordId, sheet) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function loadQueueRecord(recordId) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function discardQueueRecord(recordId) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function discardCurrentQueueRecord() {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function discardQueueRecordById_(recordId) {
+  throw new Error('この機能は主務職以上側のスプレッドシートでのみ利用できます。');
+}
+
+function getTransferSheet_() {
+  const ss = SpreadsheetApp.openById(APP_CONFIG.transferSpreadsheetId);
+  const sheet = ss.getSheetByName('受入記録');
+  if (!sheet) throw new Error('転記先シート「受入記録」が見つかりません。');
+  return sheet;
+}
+
+function findNextTransferRow_(sheet) {
+  const startRow = APP_CONFIG.transferStartRow;
+  const lastRow = Math.max(sheet.getLastRow(), startRow);
+  const values = sheet.getRange(startRow, 2, lastRow - startRow + 1, 1).getDisplayValues();
+
+  for (let i = 0; i < values.length; i += 1) {
+    if (!String(values[i][0] || '').trim()) {
+      return startRow + i;
+    }
+  }
+  return lastRow + 1;
+}
+
+function buildTransferRow_(data) {
+  const fields = data.fields || {};
+  const logs = Array.isArray(data.logs) ? data.logs : [];
+  const requiredHours = buildRequiredMinutes_(fields.startVolume, fields.endVolume);
+  return [
+    String(fields.workDate || '').trim(),
+    1,
+    String(fields.berthNo || '').trim(),
+    String(fields.shipName || '').trim(),
+    String(fields.oilType || '').trim(),
+    String(fields.quantity || '').trim(),
+    String(fields.tankNo || '').trim(),
+    buildPumpUsageLabel_(fields),
+    String(fields.dischargePressure || '').trim(),
+    String(fields.pierPressure || '').trim(),
+    buildPeakFlowRate_(fields, logs),
+    buildAverageFlowRate_(fields.quantity, requiredHours),
+    requiredHours,
+  ];
+}
+
+function buildPumpUsageLabel_(fields) {
+  const capacity = String(fields.pumpCapacity || '').trim();
+  const count = String(fields.pumpCount || '').trim();
+  if (capacity && count) return capacity + ' x ' + count + '台';
+  return capacity || count || '';
+}
+
+function buildRequiredMinutes_(startValue, endValue) {
+  const start = parseSheetTimeParts_(startValue);
+  const end = parseSheetTimeParts_(endValue);
+  if (!start || !end) return '';
+
+  const startMinutes = (start.hour * 60) + start.minute;
+  const endMinutes = (end.hour * 60) + end.minute;
+  let diff = endMinutes - startMinutes;
+  if (diff < 0) diff += 24 * 60;
+  return (Math.round((diff / 60) * 10) / 10).toFixed(1);
+}
+
+function getApprovalStatusLabel_(status) {
+  switch (status) {
+    case 'staff_pending': return '主務職待ち';
+    case 'chief_pending': return '課長待ち';
+    case 'ready_final': return '確定待ち';
+    case 'done': return '確定済み';
+    default: return status || '';
+  }
+}
+
+function getNextApproverLabel_(status) {
+  switch (status) {
+    case 'staff_pending': return '主務職';
+    case 'chief_pending': return '課長';
+    case 'ready_final': return '確定PDF保存';
+    default: return '';
+  }
+}
+
+function assertStampOrderForCurrentRecord_(slotKey) {
+  const recordId = getCurrentQueueRecordId_();
+  if (!recordId) return;
+  const record = getQueueRecordById_(recordId);
+  if (!record) return;
+  const requiredSlot = getRequiredStampSlot_(record.status);
+  if (requiredSlot && requiredSlot !== slotKey) {
+    throw new Error(getNextApproverLabel_(record.status) + ' の押印待ちです。');
+  }
+}
+
+function generateQueueRecordId_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss = getCaseIdSpreadsheet_();
+    const sheet = getCaseIdSheet_(ss);
+    const dataStartRow = getCaseIdDataStartRow_(sheet);
+    const recordId = findNextCaseIdRecordId_(sheet, dataStartRow);
+    reserveCaseIdRecord_(sheet, dataStartRow, recordId);
+    return recordId;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getSiteCode_() {
+  const code = String(APP_CONFIG.siteCode || '').trim().toUpperCase();
+  if (!code) {
+    throw new Error('APP_CONFIG.siteCode が未設定です。4B,5B,6B,7B,8B,11B,12B,16B,17B,18B のいずれかを設定してください。');
+  }
+  if (APP_CONFIG.allowedSiteCodes.indexOf(code) === -1) {
+    throw new Error(`APP_CONFIG.siteCode "${code}" は許可されていません。許可値: ${APP_CONFIG.allowedSiteCodes.join(', ')}`);
+  }
+  return code;
+}
+
+function getCaseIdSpreadsheet_() {
+  const spreadsheetId = String(APP_CONFIG.caseIdSpreadsheetId || '').trim();
+  if (!spreadsheetId) {
+    throw new Error('APP_CONFIG.caseIdSpreadsheetId が未設定です。');
+  }
+  return SpreadsheetApp.openById(spreadsheetId);
+}
+
+function getCaseIdSheet_(ss) {
+  const targetId = Number(APP_CONFIG.caseIdSheetId || 0);
+  if (targetId > 0) {
+    const byId = ss.getSheets().find((sheet) => sheet.getSheetId() === targetId);
+    if (byId) return byId;
+  }
+  const sheet = ss.getSheetByName(APP_CONFIG.caseIdSheetName);
+  if (!sheet) {
+    throw new Error(`案件IDシート「${APP_CONFIG.caseIdSheetName}」が見つかりません。`);
+  }
+  return sheet;
+}
+
+function getCaseIdDataStartRow_(sheet) {
+  const maxScan = Math.min(sheet.getLastRow(), 200);
+  if (maxScan < 1) return 2;
+  const values = sheet.getRange(1, 1, maxScan, 2).getDisplayValues();
+  let headerRow = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const colA = String(values[i][0] || '').trim();
+    const colB = String(values[i][1] || '').trim();
+    if (colA === '案件ID' && colB === '案件内容') headerRow = i + 1;
+  }
+  if (headerRow > 0) return headerRow + 1;
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (String(values[i][0] || '').trim() === '案件ID') return i + 2;
+  }
+  return 2;
+}
+
+function findCaseIdRowByRecordId_(sheet, recordId) {
+  const startRow = getCaseIdDataStartRow_(sheet);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < startRow) return 0;
+  const values = sheet.getRange(startRow, 1, lastRow - startRow + 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === String(recordId || '').trim()) {
+      return startRow + i;
+    }
+  }
+  return 0;
+}
+
+function findNextCaseIdRow_(sheet, startRow) {
+  const begin = Math.max(Number(startRow || 2), 2);
+  const lastRow = Math.max(sheet.getLastRow(), begin);
+  const values = sheet.getRange(begin, 1, lastRow - begin + 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (!String(values[i][0] || '').trim()) return begin + i;
+  }
+  return lastRow + 1;
+}
+
+function findNextCaseIdRecordId_(sheet, startRow) {
+  const siteCode = getSiteCode_();
+  const datePrefix = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd');
+  const values = sheet.getLastRow() >= startRow
+    ? sheet.getRange(startRow, 1, sheet.getLastRow() - startRow + 1, 1).getDisplayValues()
+    : [];
+  const used = {};
+  values.forEach((row) => {
+    const id = String(row[0] || '').trim();
+    if (id) used[id] = true;
+  });
+
+  let nextNumber = 1;
+  while (used[`${siteCode}-${datePrefix}-${String(nextNumber).padStart(6, '0')}`]) {
+    nextNumber += 1;
+  }
+  return `${siteCode}-${datePrefix}-${String(nextNumber).padStart(6, '0')}`;
+}
+
+function reserveCaseIdRecord_(sheet, startRow, recordId) {
+  const id = String(recordId || '').trim();
+  if (!id) return 0;
+  const existingRow = findCaseIdRowByRecordId_(sheet, id);
+  if (existingRow > 0) return existingRow;
+  const writeRow = findNextCaseIdRow_(sheet, startRow);
+  sheet.getRange(writeRow, 1).setValue(id);
+  return writeRow;
+}
+
+function upsertQueueRecord_(data) {
+  const sheet = ensureQueueSheet_();
+  const recordId = String(data.recordId || generateQueueRecordId_()).trim();
+  const payload = {
+    department: String(data.department || '').trim(),
+    fields: data.fields || {},
+    logs: Array.isArray(data.logs) ? data.logs : [],
+    checks: data.checks || {},
+    stamps: data.stamps || {},
+  };
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  const title = buildPdfBaseName_(payload.fields);
+  const rowValues = [
+    recordId,
+    String(data.status || 'staff_pending').trim(),
+    title,
+    payload.fields.workDate || '',
+    payload.fields.shipName || '',
+    payload.fields.berthNo || '',
+    payload.department,
+    data.draftPdfUrl || '',
+    data.draftPdfName || '',
+    data.finalPdfUrl || '',
+    data.finalPdfName || '',
+    JSON.stringify(payload),
+    '',
+    now,
+    data.status === 'done' ? now : '',
+  ];
+
+  const existingRow = findQueueRowById_(sheet, recordId);
+  if (existingRow) {
+    const createdAt = sheet.getRange(existingRow, 13).getDisplayValue() || now;
+    rowValues[12] = createdAt;
+    if (data.status !== 'done') rowValues[14] = sheet.getRange(existingRow, 15).getDisplayValue();
+    sheet.getRange(existingRow, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    rowValues[12] = now;
+    sheet.appendRow(rowValues);
+  }
+
+  const record = {
+    recordId,
+    payload,
+    draftPdfUrl: rowValues[7],
+    draftPdfName: rowValues[8],
+    finalPdfUrl: rowValues[9],
+    finalPdfName: rowValues[10],
+    status: rowValues[1],
+    title,
+    updatedAt: rowValues[13],
+  };
+  syncQueueRecordToExternalTargets_(record);
+  return record;
+}
+
+function syncQueueRecordToExternalTargets_(record) {
+  syncStatusBoardRecord_(record);
+  syncApprovalMirrorRecord_(record);
+  syncCaseIdRecord_(record);
+}
+
+function syncStatusBoardRecord_(record) {
+  const ss = SpreadsheetApp.openById(APP_CONFIG.logSpreadsheetId);
+  const sheet = ss.getSheetByName('主務職');
+  if (!sheet) return;
+
+  const rowIndex = findStatusBoardRow_(sheet, record.recordId);
+  const writeRow = rowIndex || findNextStatusBoardRow_(sheet);
+  const values = [[
+    `=HYPERLINK("${buildApprovalSpreadsheetUrl_(record.recordId)}","${record.recordId}")`,
+    buildStatusBoardCaseLabel_(record),
+    getRoleBoardStatus_('chief', record.status),
+    getRoleBoardStatus_('staff', record.status),
+    getOverallBoardStatus_(record.status),
+  ]];
+  sheet.getRange(writeRow, 1, 1, values[0].length).setValues(values);
+}
+
+function buildStatusBoardCaseLabel_(record) {
+  const shipName = String(record && record.payload && record.payload.fields && record.payload.fields.shipName || '').trim();
+  return shipName ? `内航受入記録 "${shipName}"` : '内航受入記録';
+}
+
+function removeStatusBoardRecord_(recordId) {
+  const ss = SpreadsheetApp.openById(APP_CONFIG.logSpreadsheetId);
+  const sheet = ss.getSheetByName('主務職');
+  if (!sheet) return;
+  const rowIndex = findStatusBoardRow_(sheet, recordId);
+  if (rowIndex) sheet.deleteRow(rowIndex);
+}
+
+function findStatusBoardRow_(sheet, recordId) {
+  const startRow = 6;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < startRow) return 0;
+  const formulas = sheet.getRange(startRow, 1, lastRow - startRow + 1, 1).getFormulas();
+  const displays = sheet.getRange(startRow, 1, lastRow - startRow + 1, 1).getDisplayValues();
+  for (let i = 0; i < displays.length; i += 1) {
+    const visible = String(displays[i][0] || '').trim();
+    const formula = String(formulas[i][0] || '');
+    if (visible === recordId || formula.indexOf(recordId) !== -1) return startRow + i;
+  }
+  return 0;
+}
+
+function findNextStatusBoardRow_(sheet) {
+  const startRow = 6;
+  const lastRow = Math.max(sheet.getLastRow(), startRow);
+  const values = sheet.getRange(startRow, 1, lastRow - startRow + 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (!String(values[i][0] || '').trim()) return startRow + i;
+  }
+  return lastRow + 1;
+}
+
+function getRoleBoardStatus_(role, status) {
+  if (status === 'done' || status === 'ready_final') return '済';
+  if (role === 'staff') return status === 'staff_pending' ? '未' : '済';
+  if (role === 'chief') return status === 'ready_final' || status === 'done' ? '済' : '未';
+  return '未';
+}
+
+function getOverallBoardStatus_(status) {
+  switch (status) {
+    case 'staff_pending': return '主務職待ち';
+    case 'chief_pending': return '課長待ち';
+    case 'ready_final': return '確定待ち';
+    case 'done': return '確定済み';
+    default: return status || '';
+  }
+}
+
+function buildApprovalSpreadsheetUrl_(recordId) {
+  const base = 'https://docs.google.com/spreadsheets/d/1I_q1ZnY_MmwDvFQllnjwq2KBCsYqsYxx5KQl3cDerQU/edit?gid=177580134#gid=177580134';
+  return base;
+}
+
+function syncApprovalMirrorRecord_(record) {
+  const ss = SpreadsheetApp.openById('1I_q1ZnY_MmwDvFQllnjwq2KBCsYqsYxx5KQl3cDerQU');
+  const sheet = ensureQueueSheetInSpreadsheet_(ss);
+  const rowValues = [[
+    record.recordId,
+    record.status,
+    record.title || '',
+    record.payload.fields.workDate || '',
+    record.payload.fields.shipName || '',
+    record.payload.fields.berthNo || '',
+    record.payload.department || '',
+    record.draftPdfUrl || '',
+    record.draftPdfName || '',
+    record.finalPdfUrl || '',
+    record.finalPdfName || '',
+    JSON.stringify(record.payload || {}),
+    '',
+    record.updatedAt || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'),
+    record.status === 'done' ? Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : '',
+  ]];
+  const rowIndex = findQueueRowById_(sheet, record.recordId);
+  if (rowIndex) {
+    const createdAt = sheet.getRange(rowIndex, 13).getDisplayValue() || rowValues[0][13];
+    rowValues[0][12] = createdAt;
+    if (record.status !== 'done') rowValues[0][14] = sheet.getRange(rowIndex, 15).getDisplayValue();
+    sheet.getRange(rowIndex, 1, 1, rowValues[0].length).setValues(rowValues);
+  } else {
+    rowValues[0][12] = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    sheet.appendRow(rowValues[0]);
+  }
+}
+
+function removeApprovalMirrorRecord_(recordId) {
+  const ss = SpreadsheetApp.openById('1I_q1ZnY_MmwDvFQllnjwq2KBCsYqsYxx5KQl3cDerQU');
+  const sheet = ensureQueueSheetInSpreadsheet_(ss);
+  const rowIndex = findQueueRowById_(sheet, recordId);
+  if (rowIndex) sheet.deleteRow(rowIndex);
+}
+
+function syncCaseIdRecord_(record) {
+  const recordId = String(record && record.recordId || '').trim();
+  if (!recordId) return;
+
+  const ss = getCaseIdSpreadsheet_();
+  const sheet = getCaseIdSheet_(ss);
+  const dataStartRow = getCaseIdDataStartRow_(sheet);
+  const rowIndex = findCaseIdRowByRecordId_(sheet, recordId);
+  const writeRow = rowIndex || findNextCaseIdRow_(sheet, dataStartRow);
+
+  if (!rowIndex) {
+    sheet.getRange(writeRow, 1).setValue(recordId);
+  }
+
+  const finalPdfUrl = String(record.finalPdfUrl || '').trim();
+  if (!finalPdfUrl) return;
+
+  const finalPdfName = String(record.finalPdfName || '').trim() || '確定済みPDF';
+  const linkCell = sheet.getRange(writeRow, 2);
+  if (String(linkCell.getDisplayValue() || '').trim()) return;
+
+  linkCell.setFormula(
+    `=HYPERLINK("${finalPdfUrl.replace(/"/g, '""')}","${finalPdfName.replace(/"/g, '""')}")`
+  );
+}
+
+function ensureQueueSheetInSpreadsheet_(ss) {
+  let sheet = ss.getSheetByName(APP_CONFIG.queueSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(APP_CONFIG.queueSheetName);
+    sheet.getRange(1, 1, 1, 15).setValues([[
+      'recordId', 'status', 'title', 'workDate', 'shipName', 'berthNo', 'department',
+      'draftPdfUrl', 'draftPdfName', 'finalPdfUrl', 'finalPdfName', 'payloadJson',
+      'createdAt', 'updatedAt', 'finalizedAt',
+    ]]);
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu(APP_CONFIG.menuName)
+    .addItem('入力パネルを開く', 'showMainSidebar')
+    .addItem('入力内容をクリア', 'clearOperationSheet')
+    .addItem('PDF保存とログ転記', 'savePdfAndLogLink')
+    .addSeparator()
+    .addItem('保護設定を適用', 'setupRecommendedProtections')
+    .addToUi();
+
+  hideStampCacheArea_(getMainSheet_());
+}
+
+function setupRecommendedProtections() {
+  const applied = [];
+  const mainSheet = getMainSheet_();
+  const mainUnprotectedRanges = buildMainSheetEditableRanges_(mainSheet);
+  upsertSheetProtection_(mainSheet, 'Codex Main Input Protection', mainUnprotectedRanges);
+  applied.push(`${mainSheet.getName()}: 入力セルとチェック欄のみ編集可`);
+
+  [
+    APP_CONFIG.rosterSheetName,
+    APP_CONFIG.stampMapSheetName,
+    APP_CONFIG.dropdownSettingsSheetName,
+    APP_CONFIG.queueSheetName,
+  ].forEach((name) => {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+    if (!sheet) return;
+    upsertSheetProtection_(sheet, `Codex Protected ${name}`, []);
+    applied.push(`${name}: シート全体を保護`);
+  });
+
+  SpreadsheetApp.getUi().alert(
+    '保護設定を適用しました',
+    applied.join('\n'),
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+function buildMainSheetEditableRanges_(sheet) {
+  const ranges = [];
+  const seen = {};
+
+  APP_CONFIG.clearRanges.forEach((a1) => {
+    const key = String(a1 || '').trim();
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    ranges.push(sheet.getRange(key));
+  });
+
+  collectCheckboxCells_(sheet).forEach((cell) => {
+    const key = cell.getA1Notation();
+    if (seen[key]) return;
+    seen[key] = true;
+    ranges.push(cell);
+  });
+
+  return ranges;
+}
+
+function collectCheckboxCells_(sheet) {
+  const range = sheet.getRange(APP_CONFIG.pdfRangeA1);
+  const validations = range.getDataValidations();
+  const cells = [];
+
+  for (let row = 0; row < validations.length; row += 1) {
+    for (let col = 0; col < validations[row].length; col += 1) {
+      const rule = validations[row][col];
+      if (!rule) continue;
+      if (rule.getCriteriaType() !== SpreadsheetApp.DataValidationCriteria.CHECKBOX) continue;
+      cells.push(range.getCell(row + 1, col + 1));
+    }
+  }
+
+  return cells;
+}
+
+function upsertSheetProtection_(sheet, description, unprotectedRanges) {
+  const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  let protection = protections.find((item) => item.getDescription() === description);
+  if (!protection) {
+    protection = sheet.protect();
+    protection.setDescription(description);
+  }
+
+  protection.setWarningOnly(false);
+  protection.setUnprotectedRanges(unprotectedRanges || []);
+
+  try {
+    if (protection.canDomainEdit()) protection.setDomainEdit(false);
+  } catch (error) {
+    // Domain editing may be unavailable depending on the account type.
+  }
+
+  return protection;
+}
+
+function throwWorkerRestrictedError_() {
+  throw new Error('この機能は主務職以上版でのみ使用できます。');
+}
+
+function showMainSidebar() {
+  hideStampCacheArea_(getMainSheet_());
+  const template = HtmlService.createTemplateFromFile('Sidebar');
+  template.initialState = 'null';
+  const html = template.evaluate().setTitle('便利ツール').setWidth(430);
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function showStampSidebar() {
+  throwWorkerRestrictedError_();
+}
+
+function getAppState() {
+  return getMainSidebarState();
+}
+
+function getMainSidebarState() {
+  const sheet = getMainSheet_();
+  const selectedDepartment = getSelectedDepartment_();
+  const departments = getDepartments_();
+  const snapshot = createSheetSnapshot_(sheet, 'A1:Y44');
+  const roster = buildRosterState_(departments, selectedDepartment);
+  const shipNameSuggestions = getShipNameSuggestionState_(sheet);
+
+  return {
+    departments,
+    selectedDepartment,
+    fields: getCurrentFieldValuesFromSnapshot_(snapshot),
+    logs: getCurrentLogValuesFromSnapshot_(snapshot),
+    oilTypeOptions: getOilTypeOptions_(),
+    shipNameOptions: shipNameSuggestions.options,
+    recentShipNames: shipNameSuggestions.quickPicks,
+    roster,
+  };
+}
+
+function getStampSidebarState() {
+  throwWorkerRestrictedError_();
+}
+
+function saveStampAssignments(assignments) {
+  throwWorkerRestrictedError_();
+}
+
+function refreshStampCache() {
+  throwWorkerRestrictedError_();
+}
+
+function pressStamp(slotKey, stampName) {
+  throwWorkerRestrictedError_();
+}
+
+function finalizeCurrentRecordPdf() {
+  throwWorkerRestrictedError_();
+}
+
+function finalizeCurrentRecordSilently_(recordId, sheet) {
+  throwWorkerRestrictedError_();
+}
+
+function loadQueueRecord(recordId) {
+  throwWorkerRestrictedError_();
+}
+
+function discardQueueRecord(recordId) {
+  throwWorkerRestrictedError_();
+}
+
+function discardCurrentQueueRecord() {
+  throwWorkerRestrictedError_();
+}
+
+function getCurrentQueueRecordId_() {
+  return PropertiesService.getDocumentProperties().getProperty('currentQueueRecordId') || '';
+}
+
+function setCurrentQueueRecordId_(recordId) {
+  const props = PropertiesService.getDocumentProperties();
+  const value = String(recordId || '').trim();
+  if (value) props.setProperty('currentQueueRecordId', value);
+  else props.deleteProperty('currentQueueRecordId');
+}
+
+function resolveDraftQueueRecordId_(currentRecordId, payload) {
+  const recordId = String(currentRecordId || '').trim();
+  if (!recordId) return '';
+
+  const record = getQueueRecordById_(recordId);
+  if (!record) return '';
+  if (record.status === 'done') return '';
+
+  return areQueuePayloadsEquivalent_(record.payload, payload) ? recordId : '';
+}
+
+function areQueuePayloadsEquivalent_(left, right) {
+  const normalize = (value) => JSON.stringify({
+    department: String(value && value.department || '').trim(),
+    fields: value && value.fields || {},
+    logs: Array.isArray(value && value.logs) ? value.logs : [],
+    checks: value && value.checks || {},
+    stamps: value && value.stamps || {},
+  });
+  return normalize(left) === normalize(right);
+}
+
+function getFolderByIdOrThrow_(folderId) {
+  return DriveApp.getFolderById(folderId);
+}
+
+function exportSheetPdfToFolder_(folder, baseName) {
+  const sheet = getMainSheet_();
+  const fileBase = getUniqueFileName_(folder, baseName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const range = sheet.getRange(APP_CONFIG.pdfRangeA1);
+  const pdfUrl =
+    'https://docs.google.com/spreadsheets/d/' + ss.getId() +
+    '/export?format=pdf' +
+    '&gid=' + sheet.getSheetId() +
+    '&range=' + encodeURIComponent(range.getA1Notation()) +
+    '&size=A4' +
+    '&portrait=true' +
+    '&fitw=true' +
+    '&sheetnames=false' +
+    '&printtitle=false' +
+    '&pagenumbers=false' +
+    '&gridlines=false' +
+    '&fzr=false';
+
+  const token = ScriptApp.getOAuthToken();
+  const blob = UrlFetchApp.fetch(pdfUrl, {
+    headers: { Authorization: 'Bearer ' + token },
+  }).getBlob().setName(fileBase + '.pdf');
+
+  return folder.createFile(blob);
+}
+
+function buildPeakFlowRate_(fields, logs) {
+  const candidates = []
+    .concat((logs || []).map((entry) => entry && entry.flow))
+    .concat([fields.bridgeFlowRate]);
+  const numbers = candidates
+    .map((value) => parseLooseNumber_(value))
+    .filter((value) => Number.isFinite(value));
+  if (!numbers.length) return '';
+  return String(Math.max.apply(null, numbers));
+}
+
+function buildAverageFlowRate_(quantityValue, requiredHoursValue) {
+  const quantity = parseLooseNumber_(quantityValue);
+  const requiredHours = parseLooseNumber_(requiredHoursValue);
+  if (!Number.isFinite(quantity) || !Number.isFinite(requiredHours) || requiredHours <= 0) return '';
+  return (Math.round((quantity / requiredHours) * 10) / 10).toFixed(1);
+}
+
+function ensureQueueSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(APP_CONFIG.queueSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(APP_CONFIG.queueSheetName);
+    sheet.getRange(1, 1, 1, 15).setValues([[
+      'recordId', 'status', 'title', 'workDate', 'shipName', 'berthNo', 'department',
+      'draftPdfUrl', 'draftPdfName', 'finalPdfUrl', 'finalPdfName', 'payloadJson',
+      'createdAt', 'updatedAt', 'finalizedAt',
+    ]]);
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function findQueueRowById_(sheet, recordId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === String(recordId || '').trim()) {
+      return i + 2;
+    }
+  }
+  return 0;
+}
+
+function getQueueRecordById_(recordId) {
+  const sheet = ensureQueueSheet_();
+  const rowIndex = findQueueRowById_(sheet, recordId);
+  if (!rowIndex) return null;
+
+  const row = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).getValues()[0];
+  return {
+    recordId: row[0],
+    status: row[1],
+    title: row[2],
+    workDate: row[3],
+    shipName: row[4],
+    berthNo: row[5],
+    department: row[6],
+    draftPdfUrl: row[7],
+    draftPdfName: row[8],
+    finalPdfUrl: row[9],
+    finalPdfName: row[10],
+    payload: row[11] ? JSON.parse(row[11]) : { department: '', fields: {}, logs: [], checks: {}, stamps: {} },
+    createdAt: row[12],
+    updatedAt: row[13],
+    finalizedAt: row[14],
+  };
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu('便利ツール')
+    .addItem('入力パネルを開く', 'showMainSidebar')
+    .addItem('入力内容をクリア', 'clearOperationSheet')
+    .addItem('PDF保存とログ転記', 'savePdfAndLogLink')
+    .addSeparator()
+    .addItem('保護設定を適用', 'setupRecommendedProtections')
+    .addToUi();
+
+  hideStampCacheArea_(getMainSheet_());
+}
+
+
+function getFolderByIdOrThrow_(folderId) {
+  return DriveApp.getFolderById(folderId);
+}
+
+function exportSheetPdfToFolder_(folder, baseName) {
+  const sheet = getMainSheet_();
+  const fileBase = getUniqueFileName_(folder, baseName);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const range = sheet.getRange(APP_CONFIG.pdfRangeA1);
+  const pdfUrl =
+    'https://docs.google.com/spreadsheets/d/' + ss.getId() +
+    '/export?format=pdf' +
+    '&gid=' + sheet.getSheetId() +
+    '&range=' + encodeURIComponent(range.getA1Notation()) +
+    '&size=A4' +
+    '&portrait=true' +
+    '&fitw=true' +
+    '&sheetnames=false' +
+    '&printtitle=false' +
+    '&pagenumbers=false' +
+    '&gridlines=false' +
+    '&fzr=false';
+
+  const token = ScriptApp.getOAuthToken();
+  const blob = UrlFetchApp.fetch(pdfUrl, {
+    headers: { Authorization: 'Bearer ' + token },
+  }).getBlob().setName(fileBase + '.pdf');
+
+  return folder.createFile(blob);
+}
+
+function getCurrentQueueRecordId_() {
+  return PropertiesService.getDocumentProperties().getProperty('currentQueueRecordId') || '';
+}
+
+function setCurrentQueueRecordId_(recordId) {
+  const props = PropertiesService.getDocumentProperties();
+  const value = String(recordId || '').trim();
+  if (value) props.setProperty('currentQueueRecordId', value);
+  else props.deleteProperty('currentQueueRecordId');
+}
+
+function resolveDraftQueueRecordId_(currentRecordId, payload) {
+  const recordId = String(currentRecordId || '').trim();
+  if (!recordId) return '';
+
+  const record = getQueueRecordById_(recordId);
+  if (!record) return '';
+  if (record.status === 'done') return '';
+
+  return areQueuePayloadsEquivalent_(record.payload, payload) ? recordId : '';
+}
+
+function areQueuePayloadsEquivalent_(left, right) {
+  const normalize = (value) => JSON.stringify({
+    department: String(value && value.department || '').trim(),
+    fields: value && value.fields || {},
+    logs: Array.isArray(value && value.logs) ? value.logs : [],
+  });
+  return normalize(left) === normalize(right);
+}
+
+function getQueueRecordById_(recordId) {
+  const sheet = ensureQueueSheet_();
+  const rowIndex = findQueueRowById_(sheet, recordId);
+  if (!rowIndex) return null;
+
+  const row = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).getValues()[0];
+  return {
+    recordId: row[0],
+    status: row[1],
+    title: row[2],
+    workDate: row[3],
+    shipName: row[4],
+    berthNo: row[5],
+    department: row[6],
+    draftPdfUrl: row[7],
+    draftPdfName: row[8],
+    finalPdfUrl: row[9],
+    finalPdfName: row[10],
+    payload: row[11] ? JSON.parse(row[11]) : { department: '', fields: {}, logs: [], stamps: {} },
+    createdAt: row[12],
+    updatedAt: row[13],
+    finalizedAt: row[14],
+  };
+}
+
+function ensureQueueSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(APP_CONFIG.queueSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(APP_CONFIG.queueSheetName);
+    sheet.getRange(1, 1, 1, 15).setValues([[
+      'recordId', 'status', 'title', 'workDate', 'shipName', 'berthNo', 'department',
+      'draftPdfUrl', 'draftPdfName', 'finalPdfUrl', 'finalPdfName', 'payloadJson',
+      'createdAt', 'updatedAt', 'finalizedAt',
+    ]]);
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function findQueueRowById_(sheet, recordId) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === String(recordId || '').trim()) {
+      return i + 2;
+    }
+  }
+  return 0;
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu('便利ツール')
+    .addItem('入力パネルを開く', 'showMainSidebar')
+    .addItem('入力内容をクリア', 'clearOperationSheet')
+    .addItem('PDF保存とログ転記', 'savePdfAndLogLink')
+    .addSeparator()
+    .addItem('保護設定を適用', 'setupRecommendedProtections')
+    .addToUi();
+
+  hideStampCacheArea_(getMainSheet_());
+}

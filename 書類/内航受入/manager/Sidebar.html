@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      :root {
+        --bg: #f4f1ea;
+        --panel: #fffdf8;
+        --line: #d8cdbf;
+        --ink: #2d261f;
+        --muted: #6f655a;
+        --accent: #0d6b57;
+        --warning: #8a3b12;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, #f8f2e6 0, #f4f1ea 36%),
+          linear-gradient(180deg, #f6f3ed 0%, #ece5d9 100%);
+        color: var(--ink);
+        font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
+      }
+
+      .wrap { padding: 14px; }
+
+      .hero,
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 10px 20px rgba(70, 53, 26, 0.05);
+      }
+
+      .hero {
+        margin-bottom: 12px;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(247,241,231,0.92));
+      }
+
+      .hero h1 { margin: 0; font-size: 18px; }
+      .hero p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+      .panel { margin-bottom: 12px; padding: 14px; }
+      .panel-compact { padding: 10px 12px; }
+      .panel h2 { margin: 0 0 10px; font-size: 14px; }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .grid-basic {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .full { grid-column: 1 / -1; }
+
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      input,
+      select {
+        width: 100%;
+        min-height: 36px;
+        border: 1px solid #cfc2b2;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: var(--ink);
+        background: #fffdfa;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border: 1px solid #ddd2c5;
+        border-radius: 10px;
+        background: #f8f4ed;
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .chip input {
+        width: 14px;
+        min-height: 14px;
+        margin: 0;
+        accent-color: var(--accent);
+      }
+
+      .stamp-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .stamp-card,
+      .log-card {
+        padding: 10px;
+        border-radius: 14px;
+        background: #fffaf2;
+      }
+
+      .stamp-card { border: 1px dashed #c9b8a5; }
+      .log-card { border: 1px solid #eadfce; background: #fffaf6; }
+      .log-card h3 { margin: 0 0 8px; font-size: 12px; }
+
+      .stamp-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .stamp-head strong { font-size: 13px; }
+      .stamp-state { color: var(--muted); font-size: 12px; }
+
+      .button-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled { opacity: 0.6; cursor: wait; }
+      .primary { color: white; background: var(--accent); }
+      .secondary { color: var(--ink); background: #e9dfd0; }
+      .ghost { color: var(--warning); background: #f7e7dc; }
+
+      .actions {
+        position: sticky;
+        bottom: 0;
+        padding-top: 6px;
+        background: linear-gradient(180deg, rgba(244,241,234,0), rgba(244,241,234,0.95) 35%);
+      }
+
+      .status {
+        min-height: 20px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--accent);
+      }
+
+      .hint {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .record-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .record-card {
+        padding: 10px;
+        border: 1px solid #eadfce;
+        border-radius: 14px;
+        background: #fffaf6;
+      }
+
+      .record-meta {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .record-empty {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .error { color: #a12424; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="hero">
+        <h1>受入作業チェック</h1>
+        <p>入力と担当者選択に集中した空入力フォームです。印鑑作業は別画面へ分けやすい構成にしています。</p>
+      </div>
+
+      <div class="panel panel-compact">
+        <h2>部署</h2>
+        <div id="departmentChips" class="chips"></div>
+      </div>
+
+      <div class="panel">
+        <h2>基本情報</h2>
+        <div class="grid-basic">
+          <div><label for="workDate">日付</label><input id="workDate" type="date"></div>
+          <div>
+            <label for="berthNo">バースNo.</label>
+            <select id="berthNo">
+              <option value=""></option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="14">14</option>
+              <option value="15">15</option>
+              <option value="16">16</option>
+              <option value="17">17</option>
+              <option value="18">18</option>
+              <option value="19">19</option>
+            </select>
+          </div>
+          <div class="full"><label for="shipName">船名</label><input id="shipName"></div>
+          <div><label for="oilType">油種</label><input id="oilType" list="oilTypeOptions"></div>
+          <div>
+            <label for="category">白物 / 黒物 / 特殊</label>
+            <select id="category">
+              <option value=""></option>
+              <option value="白物">白物</option>
+              <option value="黒物">黒物</option>
+              <option value="特殊">特殊</option>
+            </select>
+          </div>
+          <div><label for="quantity">数量</label><input id="quantity"></div>
+          <div><label for="origin">積地</label><input id="origin"></div>
+          <div><label for="tankNo">タンクNo.</label><input id="tankNo"></div>
+          <div>
+            <label for="pumpCapacity">使用ポンプ能力</label>
+            <select id="pumpCapacity"></select>
+          </div>
+          <div><label for="pumpCount">台数</label><input id="pumpCount" type="number" step="1" min="0"></div>
+          <div><label for="airPushCount">終了時エアー押し回数</label><input id="airPushCount"></div>
+          <div><label for="startVolume">揚荷開始時間</label><select id="startVolume"></select></div>
+          <div><label for="endVolume">揚荷終了時間</label><select id="endVolume"></select></div>
+          <div><label for="dischargePressure">吐出</label><input id="dischargePressure" inputmode="decimal"></div>
+          <div><label for="pierPressure">桟橋圧力</label><input id="pierPressure" inputmode="decimal"></div>
+          <div><label for="bridgeFlowRate">流速</label><input id="bridgeFlowRate" inputmode="decimal"></div>
+        </div>
+        <div class="hint">管理者側の入力パネルは修正専用です。入力した項目は順次シートへ反映します。</div>
+      </div>
+
+      <div class="panel">
+        <h2>2時間ごとの記録</h2>
+        <div id="logEntries" class="stamp-grid"></div>
+      </div>
+
+      <div class="panel">
+        <h2>承認待ち案件</h2>
+        <div id="currentRecord" class="record-card record-empty">現在読み込み中の案件はありません。</div>
+        <div class="button-row" style="margin-top: 10px;">
+          <button id="refreshQueueButton" class="secondary" type="button">一覧を更新</button>
+          <button id="finalizeButton" class="primary" type="button">確定PDF保存</button>
+        </div>
+        <div id="queueList" class="record-stack" style="margin-top: 10px;"></div>
+      </div>
+
+      <div class="actions">
+        <div class="button-row">
+          <button id="clearButton" class="ghost" type="button">クリア</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+    <datalist id="oilTypeOptions"></datalist>
+    <script>
+      const initialState = <?!= initialState ?>;
+      const LOG_KEYS = ['left1', 'left2', 'left3', 'right1', 'right2', 'right3'];
+      let appState = initialState || createEmptyState();
+      const liveTimers = {};
+      const BASIC_FIELD_IDS = ['workDate', 'berthNo', 'shipName', 'oilType', 'category', 'quantity', 'origin', 'tankNo', 'pumpCapacity', 'pumpCount', 'airPushCount', 'startVolume', 'endVolume', 'dischargePressure', 'pierPressure', 'bridgeFlowRate'];
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const queuePanel = document.getElementById('currentRecord') && document.getElementById('currentRecord').closest('.panel');
+        if (queuePanel) queuePanel.style.display = 'none';
+        renderPumpCapacityOptions();
+        renderTimeOptions();
+        renderDepartments();
+        renderLogs();
+        fillForm(appState);
+        bindEvents();
+        loadInitialState();
+      });
+
+      function bindEvents() {
+        document.getElementById('clearButton').addEventListener('click', clearSheet);
+        document.getElementById('refreshQueueButton').addEventListener('click', loadInitialState);
+        document.getElementById('finalizeButton').addEventListener('click', finalizeRecord);
+
+        document.getElementById('departmentChips').addEventListener('change', (event) => {
+          if (!event.target || event.target.name !== 'department') return;
+          updatePersonList();
+          pushPatch({ department: getSelectedDepartment() }, false);
+        });
+
+        BASIC_FIELD_IDS.forEach((id) => {
+          const node = document.getElementById(id);
+          if (!node) return;
+          node.addEventListener('change', () => {
+            scheduleFieldPatch(id, getValue(id), false);
+          });
+        });
+
+        ['startVolume', 'endVolume'].forEach((id) => {
+          const node = document.getElementById(id);
+          if (!node) return;
+          const applyNearestNow = () => {
+            if (node.value) return;
+            node.value = getNearestFiveMinuteTime();
+          };
+          node.addEventListener('focus', applyNearestNow);
+          node.addEventListener('mousedown', applyNearestNow);
+          node.addEventListener('keydown', applyNearestNow);
+        });
+      }
+
+      function renderDepartments() {
+        const container = document.getElementById('departmentChips');
+        container.innerHTML = appState.departments.map((dept) => `
+          <label class="chip">
+            <input type="radio" name="department" value="${escapeHtml(dept)}">
+            <span>${escapeHtml(dept)}</span>
+          </label>
+        `).join('');
+
+      }
+
+      function loadInitialState() {
+        setBusy(true, '読み込んでいます...');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            renderDepartments();
+            fillForm(appState);
+            renderCurrentRecord();
+            renderQueueList();
+            setBusy(false, '');
+          })
+          .withFailureHandler(showError)
+          .getMainSidebarState();
+      }
+
+      function createEmptyState() {
+        return {
+          departments: [],
+          selectedDepartment: '',
+          fields: {},
+          logs: [],
+          oilTypeOptions: [],
+          roster: {
+            allNames: [],
+            namesByDepartment: [],
+            byDepartment: {},
+          },
+          queue: [],
+          currentRecord: null,
+        };
+      }
+
+      function renderLogs() {
+        const labels = ['1', '2', '3', '4', '5', '6'];
+        const container = document.getElementById('logEntries');
+        container.innerHTML = LOG_KEYS.map((key, index) => `
+          <div class="log-card">
+            <h3>${labels[index]}</h3>
+            <div class="grid">
+              <div><label for="${key}_time">時間</label><input id="${key}_time" inputmode="numeric"></div>
+              <div><label for="${key}_person">担当者</label><select id="${key}_person"></select></div>
+              <div><label for="${key}_pressure">桟橋圧力</label><input id="${key}_pressure" inputmode="decimal"></div>
+              <div><label for="${key}_flow">流速</label><input id="${key}_flow" inputmode="decimal"></div>
+              <div class="full"><label for="${key}_amount">揚げ数量</label><input id="${key}_amount" inputmode="decimal"></div>
+            </div>
+          </div>
+        `).join('');
+
+        LOG_KEYS.forEach((key) => {
+          ['time', 'pressure', 'flow', 'amount'].forEach((part) => {
+            document.getElementById(`${key}_${part}`).addEventListener('change', () => {
+              scheduleLogPatch(key, part, getValue(`${key}_${part}`), false);
+            });
+          });
+          document.getElementById(`${key}_person`).addEventListener('change', () => {
+            scheduleLogPatch(key, 'person', getValue(`${key}_person`), false);
+          });
+        });
+      }
+
+      function fillForm(state) {
+        const fields = (state && state.fields) || {};
+        const logs = Array.isArray(state && state.logs) ? state.logs : [];
+
+        document.querySelectorAll('input[name="department"]').forEach((radio) => {
+          radio.checked = radio.value === (state.selectedDepartment || '');
+        });
+
+        const oilTypeOptions = Array.isArray(state && state.oilTypeOptions) ? state.oilTypeOptions : [];
+        document.getElementById('oilTypeOptions').innerHTML = oilTypeOptions
+          .map((option) => `<option value="${escapeHtml(option)}"></option>`)
+          .join('');
+
+        BASIC_FIELD_IDS
+          .forEach((id) => setValue(id, fields[id] || ''));
+        LOG_KEYS.forEach((key) => {
+          const row = logs.find((entry) => entry && entry.key === key) || {};
+          setValue(`${key}_time`, row.time || '');
+          setValue(`${key}_pressure`, row.pressure || '');
+          setValue(`${key}_flow`, row.flow || '');
+          setValue(`${key}_amount`, row.amount || '');
+          setValue(`${key}_person`, row.person || '');
+        });
+        updatePersonList();
+        LOG_KEYS.forEach((key) => {
+          const row = logs.find((entry) => entry && entry.key === key) || {};
+          setValue(`${key}_person`, row.person || '');
+        });
+        renderCurrentRecord();
+        renderQueueList();
+      }
+
+      function renderCurrentRecord() {
+        const container = document.getElementById('currentRecord');
+        const record = appState.currentRecord;
+        if (!record) {
+          container.className = 'record-card record-empty';
+          container.textContent = '現在読み込み中の案件はありません。';
+          return;
+        }
+
+        container.className = 'record-card';
+        container.innerHTML = `
+          <div class="record-meta">
+            <div>案件ID: ${escapeHtml(record.recordId || '')}</div>
+            <div>状態: ${escapeHtml(record.status || '')}</div>
+            <div>次担当: ${escapeHtml(record.nextApprover || '')}</div>
+            <div>名称: ${escapeHtml(record.title || '')}</div>
+          </div>
+          ${record.draftPdfUrl ? `<div><a href="${escapeHtml(record.draftPdfUrl)}" target="_blank" rel="noopener noreferrer">仮PDFを開く</a></div>` : ''}
+          ${record.finalPdfUrl ? `<div><a href="${escapeHtml(record.finalPdfUrl)}" target="_blank" rel="noopener noreferrer">確定PDFを開く</a></div>` : ''}
+        `;
+      }
+
+      function renderQueueList() {
+        const container = document.getElementById('queueList');
+        const queue = appState.queue || [];
+        if (!queue.length) {
+          container.innerHTML = '<div class="record-empty">承認待ち案件はまだありません。</div>';
+          return;
+        }
+
+        container.innerHTML = queue.map((record) => `
+          <div class="record-card">
+            <div class="record-meta">
+              <div>案件ID: ${escapeHtml(record.recordId || '')}</div>
+              <div>状態: ${escapeHtml(record.status || '')}</div>
+              <div>次担当: ${escapeHtml(record.nextApprover || '')}</div>
+              <div>${escapeHtml(record.workDate || '')} / ${escapeHtml(record.shipName || '')} / バース ${escapeHtml(record.berthNo || '')}</div>
+            </div>
+            <div class="button-row">
+              <button class="secondary" type="button" data-record-id="${escapeHtml(record.recordId || '')}">この案件を開く</button>
+            </div>
+          </div>
+        `).join('');
+
+        container.querySelectorAll('[data-record-id]').forEach((button) => {
+          button.addEventListener('click', () => loadRecord(button.dataset.recordId));
+        });
+      }
+
+      function updatePersonList() {
+        const selected = getSelectedDepartment();
+        const byDepartment = (appState.roster && appState.roster.byDepartment) || {};
+        const names = selected ? (byDepartment[selected] || []) : (appState.roster.allNames || []);
+
+        LOG_KEYS.forEach((key) => {
+          const select = document.getElementById(`${key}_person`);
+          if (!select) return;
+          const current = select.value;
+          select.innerHTML = ['<option value=""></option>'].concat(
+            names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+          ).join('');
+          if (names.includes(current)) select.value = current;
+        });
+      }
+
+      function collectPayload() {
+        return {
+          department: getSelectedDepartment(),
+          fields: {
+            workDate: getValue('workDate'),
+            category: getValue('category'),
+            berthNo: getValue('berthNo'),
+            oilType: getValue('oilType'),
+            shipName: getValue('shipName'),
+            quantity: getValue('quantity'),
+            origin: getValue('origin'),
+            tankNo: getValue('tankNo'),
+            startVolume: getValue('startVolume'),
+            endVolume: getValue('endVolume'),
+            pumpCapacity: getValue('pumpCapacity'),
+            pumpCount: getValue('pumpCount'),
+            dischargePressure: getValue('dischargePressure'),
+            pierPressure: getValue('pierPressure'),
+            bridgeFlowRate: getValue('bridgeFlowRate'),
+            airPushCount: getValue('airPushCount'),
+          },
+          logs: LOG_KEYS.map((key) => ({
+            key,
+            time: getValue(`${key}_time`),
+            pressure: getValue(`${key}_pressure`),
+            flow: getValue(`${key}_flow`),
+            amount: getValue(`${key}_amount`),
+            person: getValue(`${key}_person`),
+          })),
+        };
+      }
+
+      function pushPatch(payload, useDebounce, timerKey) {
+        const runner = () => {
+          google.script.run
+            .withSuccessHandler(() => {})
+            .withFailureHandler(showError)
+            .patchOperationRecord(payload);
+        };
+
+        if (!useDebounce) {
+          runner();
+          return;
+        }
+
+        if (liveTimers[timerKey]) clearTimeout(liveTimers[timerKey]);
+        liveTimers[timerKey] = setTimeout(() => {
+          delete liveTimers[timerKey];
+          runner();
+        }, 350);
+      }
+
+      function scheduleFieldPatch(fieldKey, value, useDebounce) {
+        pushPatch({ fields: { [fieldKey]: value } }, useDebounce, `field:${fieldKey}`);
+      }
+
+      function scheduleLogPatch(logKey, part, value, useDebounce) {
+        pushPatch({
+          logs: [{ key: logKey, [part]: value }],
+        }, useDebounce, `log:${logKey}:${part}`);
+      }
+
+      function saveForm() {
+        setBusy(true, '入力を保存しています...');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState;
+            fillForm(appState);
+            setBusy(false, '入力を保存しました。');
+          })
+          .withFailureHandler(showError)
+          .saveOperationRecord(collectPayload());
+      }
+
+      function clearSheet() {
+        setBusy(true, 'シートを初期化しています...');
+        google.script.run
+          .withSuccessHandler(() => {
+            google.script.run
+              .withSuccessHandler((nextState) => {
+                appState = nextState;
+                fillForm(appState);
+                setBusy(false, '初期状態に戻しました。');
+              })
+              .withFailureHandler(showError)
+              .getMainSidebarState();
+          })
+          .withFailureHandler(showError)
+          .clearOperationSheet();
+      }
+
+      function loadRecord(recordId) {
+        setBusy(true, '案件を読み込んでいます...');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || createEmptyState();
+            renderDepartments();
+            fillForm(appState);
+            setBusy(false, '案件を読み込みました。印鑑パネルから押印できます。');
+          })
+          .withFailureHandler(showError)
+          .loadQueueRecord(recordId);
+      }
+
+      function finalizeRecord() {
+        setBusy(true, '確定PDFを保存しています...');
+        google.script.run
+          .withSuccessHandler((nextState) => {
+            appState = nextState || appState;
+            renderCurrentRecord();
+            renderQueueList();
+            setBusy(false, '確定PDFを保存しました。');
+          })
+          .withFailureHandler(showError)
+          .finalizeCurrentRecordPdf();
+      }
+
+      function runSimpleAction(waitMessage, doneMessage, methodName) {
+        return () => {
+          setBusy(true, waitMessage);
+          google.script.run
+            .withSuccessHandler((nextState) => {
+              if (nextState && typeof nextState === 'object') {
+                appState = nextState;
+                renderDepartments();
+                fillForm(appState);
+              }
+              setBusy(false, doneMessage);
+            })
+            .withFailureHandler(showError)[methodName]();
+        };
+      }
+
+      function getSelectedDepartment() {
+        const selected = document.querySelector('input[name="department"]:checked');
+        return selected ? selected.value : '';
+      }
+
+      function renderPumpCapacityOptions() {
+        const select = document.getElementById('pumpCapacity');
+        const options = ['<option value=""></option>'];
+        for (let value = 50; value <= 5000; value += 50) {
+          options.push(`<option value="${value}">${value}</option>`);
+        }
+        select.innerHTML = options.join('');
+      }
+
+      function renderTimeOptions() {
+        const options = ['<option value=""></option>'];
+        for (let hour = 0; hour < 24; hour += 1) {
+          for (let minute = 0; minute < 60; minute += 5) {
+            const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            options.push(`<option value="${value}">${value}</option>`);
+          }
+        }
+        document.getElementById('startVolume').innerHTML = options.join('');
+        document.getElementById('endVolume').innerHTML = options.join('');
+      }
+
+      function getNearestFiveMinuteTime() {
+        const now = new Date();
+        let hour = now.getHours();
+        let minute = Math.round(now.getMinutes() / 5) * 5;
+        if (minute === 60) {
+          minute = 0;
+          hour = (hour + 1) % 24;
+        }
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+
+      function setValue(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.value = value || '';
+      }
+
+      function getValue(id) {
+        const node = document.getElementById(id);
+        return node ? String(node.value || '').trim() : '';
+      }
+
+      function setBusy(isBusy, message) {
+        document.querySelectorAll('button').forEach((button) => {
+          button.disabled = isBusy;
+        });
+        const status = document.getElementById('status');
+        if (!isBusy) status.classList.remove('error');
+        status.textContent = message || '';
+      }
+
+      function showError(error) {
+        const message = (error && error.message) || '処理に失敗しました。';
+        const status = document.getElementById('status');
+        document.querySelectorAll('button').forEach((button) => {
+          button.disabled = false;
+        });
+        status.classList.add('error');
+        status.textContent = message;
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: sans-serif; font-size: 13px; margin: 0; padding: 16px; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 140px 1fr 140px 1fr; gap: 10px 12px; align-items: center; }
+    .grid label { font-weight: 700; }
+    input, select, textarea, button { font-size: 13px; box-sizing: border-box; }
+    input, select, textarea { width: 100%; padding: 8px; }
+    textarea { min-height: 56px; resize: vertical; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d0d7de; padding: 6px; vertical-align: top; }
+    th { background: #f6f8fa; }
+    td.label { min-width: 360px; }
+    .status { margin-top: 10px; color: #555; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="saveOnly()">シート反映</button>
+    <button onclick="saveAndExport()">下書きPDF作成</button>
+  </div>
+  <div class="grid">
+    <label for="shipName">船名</label><input id="shipName">
+    <label for="inspectionDate">点検日</label><input id="inspectionDate" type="date">
+    <label for="operatingCompany">運航会社</label><input id="operatingCompany">
+    <label for="captainName">船長</label><input id="captainName">
+    <label for="shipType">船種</label><input id="shipType">
+    <label for="grossTon">G/T</label><input id="grossTon">
+    <label for="deadWeight">D/W</label><input id="deadWeight">
+    <label for="workerStampName">担当者印</label><input id="workerStampName" placeholder="押印名">
+  </div>
+  <h3>チェック項目</h3>
+  <table><thead><tr><th>項目</th><th>チェック</th><th>指摘事項</th><th>処置事項</th></tr></thead><tbody id="checklistBody"></tbody></table>
+  <div id="status" class="status"></div>
+  <script>
+    const initialState = <?= initialState ?>;
+    const defs = [
+      ['fire_01','煙突には、10メッシュ以上の金網又は火粉防止器が付いているか。'],['cargo_01','積込み・仕切り・吸引バルブは、判り易い標示がされているか。'],
+      ['fire_02','揚錨機等の発動機には、30メッシュ以上の金網又は火粉防止器が付いているか。'],['cargo_02','LPGのガス配管と液配管は、外部から判別できるか。'],
+      ['fire_03','ファイヤーワイヤーは、船首・船尾の海側に配置されているか。'],['cargo_03','マニフォールドには、耐えられるサポートが設置されているか。'],
+      ['fire_04','サウンディングホールのキャップは、ノンスパーク製であるか。'],['cargo_04','積込み容量95%目印があるか。'],
+      ['fire_05','ハッチ開口部及びガス抜き管には、30メッシュ以上の金網を取付けているか。'],['cargo_05','荷役管理表が常備されているか。'],
+      ['fire_06','ガス検知器を配備しているか。'],['cargo_06','温度計・検尺器に不具合はないか。'],
+      ['fire_07','携帯電灯は、防爆型であるか。'],['cargo_07','温度計・圧力計・スリップチューブ・緊急遮断弁に不具合はないか。'],
+      ['fire_08','持ち運び式粉末消火器を2本以上配備しているか。'],['ppe_01','安全帽・静電安全靴・保護手袋・安全メガネが必要数あるか。'],
+      ['fire_09','安全工具を常備しているか。'],['ppe_02','保護面を常備しているか。'],
+      ['fire_10','油受皿（導電性）を常備しているか。'],['ppe_03','防塵マスクを常備しているか。'],
+      ['fire_11','導通性マットを常備しているか。'],['other_01','火気管理の責任者を指名し、表示しているか。'],
+      ['fire_12','アースターミナルの取付け箇所は適切か。'],['other_02','廃油・廃ウエスは、蓋付きの不燃性容器に入れられているか。'],
+      ['fire_13','係船索切断用斧を常備しているか。'],['other_03','冷暖房機器の管理状態は良好か。'],
+      ['fire_14','消火用ホースは、いつでも放水できる様点検・整備されているか。'],['other_04','LPGボンベ保管庫は、施錠・封印できる設備になっているか。'],
+    ];
+    function renderChecklist(items){ document.getElementById('checklistBody').innerHTML = items.map((item)=>`<tr><td class="label">${item.label}</td><td><select data-role="check" data-key="${item.key}"><option value=""></option><option value="○" ${item.check==='○'?'selected':''}>○</option><option value="×" ${item.check==='×'?'selected':''}>×</option></select></td><td><textarea data-role="remark" data-key="${item.key}">${item.remark||''}</textarea></td><td><textarea data-role="action" data-key="${item.key}">${item.action||''}</textarea></td></tr>`).join(''); }
+    function hydrate(state){ const f=state.fields||{}; ['shipName','inspectionDate','operatingCompany','captainName','shipType','grossTon','deadWeight','workerStampName'].forEach((id)=>document.getElementById(id).value=f[id]||''); const byKey={}; (state.checklist||[]).forEach((item)=>byKey[item.key]=item); renderChecklist(defs.map((d)=>Object.assign({key:d[0],label:d[1]}, byKey[d[0]]||{}))); }
+    function collectPayload(){ return { fields: { shipName:shipName.value.trim(), inspectionDate:inspectionDate.value, operatingCompany:operatingCompany.value.trim(), captainName:captainName.value.trim(), shipType:shipType.value.trim(), grossTon:grossTon.value.trim(), deadWeight:deadWeight.value.trim(), workerStampName:workerStampName.value.trim() }, checklist: defs.map((d)=>({ key:d[0], check:document.querySelector(`[data-role="check"][data-key="${d[0]}"]`).value, remark:document.querySelector(`[data-role="remark"][data-key="${d[0]}"]`).value.trim(), action:document.querySelector(`[data-role="action"][data-key="${d[0]}"]`).value.trim() })) }; }
+    function setStatus(text){ status.textContent=text||''; }
+    function saveOnly(){ setStatus('シートへ反映しています...'); google.script.run.withSuccessHandler((state)=>{ hydrate(state); setStatus('シートへ反映しました。'); }).withFailureHandler((e)=>setStatus(e.message||String(e))).saveForm(collectPayload()); }
+    function saveAndExport(){ setStatus('PDFを作成しています...'); google.script.run.withSuccessHandler((r)=>setStatus(`案件ID ${r.caseId} の下書きPDFを作成しました。`)).withFailureHandler((e)=>setStatus(e.message||String(e))).exportDraftPdf(collectPayload()); }
+    hydrate(initialState||{fields:{},checklist:[]});
+  </script>
+</body>
+</html>
