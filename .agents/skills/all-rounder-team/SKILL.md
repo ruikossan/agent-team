@@ -91,6 +91,7 @@ For this repository in particular:
 - treat `worker` and `manager` as separate operational roles with different responsibilities
 - ask business questions only when code authoring depends on them, not by default in runtime UI
 - treat `案件ID` as globally unique and never allow duplicates across the workflow
+- generate `案件ID` from the shared ledger or shared case-id workbook, not from local-only counters
 - default `onOpen` custom menu names to `便利ツール` unless the user explicitly requests another name
 
 For role recipes and handoff prompts, read `references/team-playbook.md`.

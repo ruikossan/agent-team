@@ -178,12 +178,18 @@ function placeTextStamp_(range, value) {
 }
 
 function generateCaseId_() {
-  const props = PropertiesService.getDocumentProperties();
-  const prefix = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd');
-  const key = 'shonyuko:' + prefix;
-  const next = Number(props.getProperty(key) || '0') + 1;
-  props.setProperty(key, String(next));
-  return 'SHN-' + prefix + '-' + String(next).padStart(4, '0');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss = getCaseIdSpreadsheet_();
+    const sheet = getCaseIdSheet_(ss);
+    const dataStartRow = getCaseIdDataStartRow_(sheet);
+    const caseId = findNextCaseIdRecordId_(sheet, dataStartRow);
+    reserveCaseIdRecord_(sheet, dataStartRow, caseId);
+    return caseId;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function buildPdfName_(fields, caseId) {
@@ -285,7 +291,9 @@ function assertCaseIdDoesNotExistAnywhere_(caseId) {
     assertCaseIdUniqueInSheet_(ss.getSheetByName(APP_CONFIG.menuStaffSheetName), caseId, '主務職シート', true);
   }
   if (isConfiguredId_(APP_CONFIG.caseIdSpreadsheetId)) {
-    assertCaseIdUniqueInSheet_(SpreadsheetApp.openById(APP_CONFIG.caseIdSpreadsheetId).getSheetByName(APP_CONFIG.caseIdSheetName), caseId, '案件IDリスト', true);
+    const sheet = getCaseIdSheet_(getCaseIdSpreadsheet_());
+    const count = countCaseIdInSheetColumn_(sheet, caseId, 1, getCaseIdDataStartRow_(sheet));
+    if (count > 1) throw new Error('案件IDリストで案件IDが重複しています: ' + caseId);
   }
 }
 function assertCaseIdUniqueInSheet_(sheet, caseId, label, disallowAny) {
@@ -304,6 +312,68 @@ function countCaseIdInSheetColumn_(sheet, caseId, column, startRow) {
   let count = 0;
   for (let i = 0; i < values.length; i += 1) if (String(values[i][0] || '').trim() === id) count += 1;
   return count;
+}
+function getCaseIdSpreadsheet_() {
+  const spreadsheetId = String(APP_CONFIG.caseIdSpreadsheetId || '').trim();
+  if (!isConfiguredId_(spreadsheetId)) throw new Error('案件ID台帳のスプレッドシートIDを設定してください。');
+  return SpreadsheetApp.openById(spreadsheetId);
+}
+function getCaseIdSheet_(ss) {
+  const sheet = ss.getSheetByName(APP_CONFIG.caseIdSheetName);
+  if (!sheet) throw new Error('案件ID台帳シートが見つかりません。');
+  return sheet;
+}
+function getCaseIdDataStartRow_(sheet) {
+  const maxScan = Math.min(sheet.getLastRow(), 200);
+  if (maxScan < 1) return 2;
+  const values = sheet.getRange(1, 1, maxScan, 2).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === '案件ID') return i + 2;
+  }
+  return 2;
+}
+function findNextCaseIdRecordId_(sheet, startRow) {
+  const datePart = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd');
+  const prefix = 'SHN-' + datePart + '-';
+  const escapedPrefix = prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const pattern = new RegExp('^' + escapedPrefix + '(\\d{4})$');
+  const lastRow = sheet.getLastRow();
+  let nextNumber = 1;
+  if (lastRow >= startRow) {
+    const values = sheet.getRange(startRow, 1, lastRow - startRow + 1, 1).getDisplayValues();
+    for (let i = 0; i < values.length; i += 1) {
+      const match = String(values[i][0] || '').trim().match(pattern);
+      if (!match) continue;
+      nextNumber = Math.max(nextNumber, Number(match[1]) + 1);
+    }
+  }
+  return prefix + String(nextNumber).padStart(4, '0');
+}
+function reserveCaseIdRecord_(sheet, startRow, caseId) {
+  const existingRow = findCaseIdRowByRecordId_(sheet, caseId, startRow);
+  if (existingRow > 0) return existingRow;
+  const writeRow = findNextBlankCaseIdRow_(sheet, startRow);
+  sheet.getRange(writeRow, 1).setValue(caseId);
+  return writeRow;
+}
+function findCaseIdRowByRecordId_(sheet, caseId, startRow) {
+  const begin = Math.max(startRow || 2, 2);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < begin) return 0;
+  const values = sheet.getRange(begin, 1, lastRow - begin + 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (String(values[i][0] || '').trim() === String(caseId || '').trim()) return begin + i;
+  }
+  return 0;
+}
+function findNextBlankCaseIdRow_(sheet, startRow) {
+  const begin = Math.max(startRow || 2, 2);
+  const lastRow = Math.max(sheet.getLastRow(), begin);
+  const values = sheet.getRange(begin, 1, lastRow - begin + 1, 1).getDisplayValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (!String(values[i][0] || '').trim()) return begin + i;
+  }
+  return lastRow + 1;
 }
 function getFolderByIdOrThrow_(folderId) { if (!isConfiguredId_(folderId)) throw new Error('フォルダIDを設定してください。'); return DriveApp.getFolderById(folderId); }
 function getMainSheet_() { const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APP_CONFIG.formSheetName); if (!sheet) throw new Error('入力シートが見つかりません。'); return sheet; }

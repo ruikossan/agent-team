@@ -65,10 +65,14 @@ Always treat `案件ID` as a globally unique key across:
 
 When implementing or updating code:
 
-1. check for an existing `案件ID` before creating or inserting a new one
-2. fail safely if a duplicate is detected
-3. prefer explicit duplicate checks over assuming sequence generators are sufficient
-4. preserve uniqueness even when retrying PDF creation or re-running transfer logic
+1. generate `案件ID` from the shared ledger or shared `案件ID` workbook
+2. do not rely on local-only counters such as script properties as the primary source of new IDs
+3. check for an existing `案件ID` before creating or inserting a new one
+4. fail safely if a duplicate is detected
+5. prefer explicit duplicate checks over assuming sequence generators are sufficient
+6. preserve uniqueness even when retrying PDF creation or re-running transfer logic
+
+For this workflow, "duplicate detection after local generation" is not enough. The default implementation should follow the shared-ledger approach already used by stronger existing flows such as `内航受入` or shared-workbook sequence scanning such as `2油種`.
 
 ## Menu naming rule
 
