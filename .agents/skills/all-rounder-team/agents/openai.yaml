@@ -1,0 +1,7 @@
+interface:
+  display_name: "All-Rounder Team"
+  short_description: "Route repo work through a compact multi-role delivery team."
+  default_prompt: "Use $all-rounder-team to handle this repository task with the right mix of investigation, implementation, review, and verification."
+
+policy:
+  allow_implicit_invocation: true
